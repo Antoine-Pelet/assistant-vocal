@@ -89,6 +89,11 @@ interruption:                  # couper Jarvis quand tu dis "attends/stop/arrete
   debug: false                 # true = affiche niv/base/seuil + ce qu'il entend (pour calibrer)
 
 assistant:
+  nom: "Red"
+  mot_activation: "red"
+  moteur_reveil: "vosk"        # détection locale ; openwakeword exige un modèle entraîné
+  modele_reveil: "models/vosk-model-small-fr-0.22"
+  stabilite_reveil: 3           # hypothèses successives avant activation
   duree_suite: 10              # secondes d'ecoute apres une reponse
   arbitrage_micro: true        # plusieurs micros entendent Hey Jarvis : seul le meilleur score repond
   arbitrage_fenetre: 0.18      # secondes laissees aux micros pour comparer leur detection

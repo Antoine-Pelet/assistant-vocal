@@ -68,7 +68,8 @@ def v_python():
 
 def v_dependances():
     titre("Dependances")
-    requis = ["yaml", "requests", "sounddevice", "numpy"]
+    requis = ["yaml", "requests", "sounddevice", "numpy", "faster_whisper"]
+    requis.append("vosk" if reglage("assistant.moteur_reveil", "vosk") == "vosk" else "openwakeword")
     optionnels = {"faster_whisper": "transcription", "anthropic": "mode cloud",
                   "playwright": "reservations/navigateur", "mcp": "serveur MCP",
                   "piper": "voix locale", "twilio": "appels", "discord": "Discord"}
@@ -141,7 +142,7 @@ def v_llm():
             import requests
             tags = requests.get(f"{hote.rstrip('/')}/api/tags", timeout=4).json()
             noms = [m.get("name", "") for m in tags.get("models", [])]
-            if any(modele.split(":")[0] in n for n in noms):
+            if (modele if ":" in modele else modele + ":latest") in noms:
                 ok(f"Ollama joignable, modele '{modele}' present")
             else:
                 ko(f"Ollama joignable mais '{modele}' absent", f"lance : ollama pull {modele}")
@@ -238,14 +239,14 @@ def v_micro():
     titre("Micro")
     try:
         import sounddevice as sd
-        idx = reglage("audio.micro", 1)
+        idx = reglage("audio.micro", None)
         entrees = [d for d in sd.query_devices() if d["max_input_channels"] > 0]
         if not entrees:
             ko("aucun micro detecte", "branche un micro.")
             return
         ok(f"{len(entrees)} entree(s) audio ; micro configure : index {idx}")
         try:
-            nom = sd.query_devices(idx)["name"]
+            nom = sd.query_devices(idx, "input")["name"]
             print(f"{INFO} index {idx} = {nom}")
         except Exception:
             warn(f"l'index audio.micro={idx} semble invalide",
@@ -270,7 +271,7 @@ def main():
     print(f"  Bilan : {_scores['ok']} OK, {_scores['warn']} avertissement(s), "
           f"{_scores['ko']} probleme(s).")
     if _scores["ko"] == 0:
-        print("  Tout est bon a l'essentiel. Lance : uv run python jarvis14.py")
+        print("  Tout est bon a l'essentiel. Lance : lancer_red.bat")
     else:
         print("  Corrige les [X] ci-dessus, puis relance ce diagnostic.")
     print("=" * 48)

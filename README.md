@@ -1,3 +1,5 @@
+> **Installation locale Red :** utilise `lancer_red.bat`. Premier lancement sur un autre PC : `installer_red.bat`. [Guide Red](DEMARRER_RED.md).
+
 # 🤖 Jarvis — assistant vocal local
 
 *[English version](README.en.md)*

@@ -235,8 +235,11 @@ class OllamaProvider(ProviderLLM):
     def disponible(self):
         try:
             import requests
-            requests.get(f"{self.hote}/api/version", timeout=3)
-            return True
+            r = requests.get(f"{self.hote}/api/tags", timeout=3)
+            r.raise_for_status()
+            nom = self.modele if ":" in self.modele else self.modele + ":latest"
+            return any(m.get("name") == nom or m.get("model") == nom
+                       for m in r.json().get("models", []))
         except Exception:
             return False
 
@@ -291,7 +294,9 @@ class OllamaProvider(ProviderLLM):
         corps = {
             "model": self.modele, "messages": messages, "tools": tools,
             "stream": False, "think": bool(reglage("ollama.think", False)),
-            "options": {"temperature": 0.3}}
+            "options": {"temperature": 0.3,
+                        "num_ctx": int(reglage("ollama.num_ctx", 4096)),
+                        "num_predict": int(reglage("ollama.num_predict", 256))}}
         if not tools:
             corps.pop("tools")
         r = requests.post(f"{self.hote}/api/chat", timeout=120, json=corps)

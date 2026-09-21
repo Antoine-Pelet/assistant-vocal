@@ -1,14 +1,14 @@
 """
 Assistant vocal local, avec mot d'activation et actions.
 
-Dites « Hey Jarvis », parlez, taisez-vous. Il repond et agit.
-Chaine : openWakeWord -> faster-whisper -> LLM cloud configurable/Ollama (+ outils)
+Dites « Red », parlez, taisez-vous. Il repond et agit.
+Chaine : Vosk/openWakeWord -> faster-whisper -> LLM cloud configurable/Ollama (+ outils)
          -> moteur vocal configurable (ElevenLabs/Piper/Kokoro/SAPI)
 
 Architecture : les outils vivent dans tools/ (auto-decouverts via core.registre),
 les reglages et secrets dans config.yaml (via core.config).
 
-Usage : uv run python jarvis14.py
+Usage Windows : lancer_red.bat
 """
 
 import os
@@ -31,12 +31,11 @@ except Exception:
     pass
 
 import numpy as np
-import openwakeword
 import sounddevice as sd
 from faster_whisper import WhisperModel
-from openwakeword.model import Model as WakeModel
 
 from core import config, journal, memoire, personnalite, registre, voix
+from core.reveil import charger_reveil, mot_activation, retirer_activation
 from core.util import nettoyer_reponse_vocale, sans_accents
 from tools.lumieres import allumer_si_nuit, charger_pieces_hue
 
@@ -138,7 +137,8 @@ def _refaire_systeme(memoire_courante):
     global SYSTEME_COURANT
     persona = personnalite.persona(
         config.reglage("assistant.personnalite", personnalite.DEFAUT))
-    SYSTEME_COURANT = (persona + "\n\n" + SYSTEME_BASE
+    nom = config.reglage("assistant.nom", "Red")
+    SYSTEME_COURANT = (persona + f"\nTon nom est {nom}.\n\n" + SYSTEME_BASE
                        + memoire.texte_pour_systeme(memoire_courante))
 
 
@@ -203,7 +203,7 @@ def _afficher_overlay(texte):
 
 def _hud(methode, *args):
     """Relaie un appel au HUD sans jamais interrompre l'assistant."""
-    if hud is None:
+    if hud is None or not config.reglage("hud.actif", True):
         return
     global _dernier_etat_hud
     if methode == "etat":
@@ -446,7 +446,7 @@ def _est_toujours(texte):
 
 def nettoyer(texte):
     """Retire le residu du mot d'activation en tete de transcription."""
-    t = texte.strip()
+    t = retirer_activation(texte)
 
     plat = sans_accents(t)
     if any(h in plat for h in HALLUCINATIONS):
@@ -838,13 +838,16 @@ def charger_whisper():
     """Charge Whisper sur GPU si possible, sinon sur CPU."""
     _ajouter_dll_nvidia()
 
-    try:
-        modele = WhisperModel(MODELE_WHISPER, device="cuda", compute_type="float16")
-        modele.transcribe(np.zeros(TAUX, dtype=np.float32), language="fr")
-        print(f"Whisper {MODELE_WHISPER} sur GPU.")
-        return modele
-    except Exception as e:
-        print(f"GPU indisponible ({type(e).__name__}), bascule sur CPU.")
+    if config.reglage("whisper.device", "auto") != "cpu":
+        try:
+            modele = WhisperModel(MODELE_WHISPER, device="cuda", compute_type="float16")
+            # La transcription est paresseuse : consommer les segments teste CUDA.
+            segments, _ = modele.transcribe(np.zeros(TAUX, dtype=np.float32), language="fr")
+            list(segments)
+            print(f"Whisper {MODELE_WHISPER} sur GPU.")
+            return modele
+        except Exception as e:
+            print(f"GPU indisponible ({type(e).__name__}), bascule sur CPU.")
 
     for taille in (MODELE_WHISPER, "small"):
         try:
@@ -1144,7 +1147,8 @@ def _tronquer(historique):
 def traiter(audio, whisper, historique, flux, reveil):
     """Transcrit, repond, parle. Renvoie True si on doit enchainer (relance)."""
     debut_stt = time.monotonic()
-    segments, _ = whisper.transcribe(audio, language="fr", beam_size=5)
+    segments, _ = whisper.transcribe(audio, language="fr", beam_size=5,
+                                    initial_prompt=f"{mot_activation().capitalize()}, assistant vocal.")
     question = nettoyer(" ".join(s.text for s in segments).strip())
     LOG.info("latence STT %.3fs", time.monotonic() - debut_stt)
 
@@ -1251,11 +1255,8 @@ def main():
     except Exception:
         LOG.exception("Alexa: préchargement des routines")
 
-    reveil = WakeModel(wakeword_model_paths=[str(
-        Path(openwakeword.__file__).parent / "resources" / "models" / "hey_jarvis_v0.1.onnx"
-    )])
-
     whisper = charger_whisper()
+    reveil = charger_reveil(whisper)
 
     # Les appels telephoniques reutilisent ce Whisper pour transcrire les reponses.
     from tools.appels import definir_transcripteur
@@ -1343,11 +1344,18 @@ def main():
     if CAPTURE_TAUX != TAUX:
         print(f"[audio] micro en {CAPTURE_TAUX} Hz -> reechantillonnage vers {TAUX} Hz "
               f"(bloc {BLOC_CAPTURE} -> {BLOC})")
-    flux = sd.InputStream(
-        samplerate=CAPTURE_TAUX, channels=1, dtype="float32",
-        device=MICRO, blocksize=BLOC_CAPTURE,
-    )
-    flux.start()
+    try:
+        flux = sd.InputStream(
+            samplerate=CAPTURE_TAUX, channels=1, dtype="float32",
+            device=MICRO, blocksize=BLOC_CAPTURE,
+        )
+        flux.start()
+    except sd.PortAudioError as erreur:
+        raise RuntimeError(
+            "Impossible d'ouvrir le micro. Connecte le casque choisi dans audio.micro "
+            "et vérifie les permissions Windows (Confidentialité > Microphone). "
+            "Utilise lancer_red.bat pour lancer le Python standard du projet."
+        ) from erreur
 
     # Auto-calibration des seuils de niveau selon le bruit ambiant (portabilité :
     # s'adapte au gain du micro et à la pièce). Ignorée si tu fixes toi-même
@@ -1416,8 +1424,8 @@ def main():
         except Exception:
             LOG.exception("overlay: demarrage")
 
-    print('\nPret. Dites "Hey Jarvis". Ctrl+C pour quitter.\n')
-    print('Vous pouvez le couper en redisant "Hey Jarvis" pendant qu\'il parle.\n')
+    print(f'\nPret. Dites "{mot_activation()}". Ctrl+C pour quitter.\n')
+    print(f'Vous pouvez le couper en redisant "{mot_activation()}" pendant qu\'il parle.\n')
 
     # Scene "au demarrage" : jouee UNE fois par jour, au premier lancement (musique
     # + lumieres selon l'heure + accueil vocal / brief Hermes). En tache de fond.
@@ -1427,7 +1435,8 @@ def main():
     except Exception:
         LOG.exception("scene au demarrage")
 
-    tampon = deque(maxlen=6)
+    # Vosk a une légère latence : conserver le début d'une commande enchaînée.
+    tampon = deque(maxlen=25)
     enchainer = False
 
     try:

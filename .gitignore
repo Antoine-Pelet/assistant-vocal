@@ -8,6 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+.venv-red/
+.cache/
+models/
+runtime/
+.red-install/
 
 # Secrets et donnees personnelles (ne JAMAIS versionner)
 config.yaml
