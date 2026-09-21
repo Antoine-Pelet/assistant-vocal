@@ -1,0 +1,54 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets et donnees personnelles (ne JAMAIS versionner)
+config.yaml
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+contenus.yaml
+budget.json
+memoire.json
+memory.json
+google_credentials.json
+google_token.json*
+notes/
+reminders.json
+
+# Journaux
+logs/
+
+# Profil navigateur persistant des reservations (cookies, sessions connectees)
+.profil_reservation/
+
+# Config locale de l'outil Claude Code (contient des chemins personnels)
+.claude/
+
+# Modeles de voix Piper : trop lourds pour GitHub, a retelecharger.
+# Voir README pour le lien de telechargement.
+voix/
+
+# Gestes : venv isole (Python 3.11 + MediaPipe), modele et calibration locale.
+gestes/.venv-tracker/
+gestes/models/
+gestes/calibration.json
+
+# Musique : venv isole (Python 3.12 + shazamio) et captures audio temporaires.
+musique/.venv-shazam/
+musique/captures/
+
+# Cockpit : donnees financieres PERSO (tout le dossier sauf l'exemple versionne).
+finances/*
+!finances/abonnements.example.yaml
