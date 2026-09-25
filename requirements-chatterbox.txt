@@ -1,0 +1,8 @@
+# Optionnel, uniquement dans .venv-chatterbox (Python 3.11).
+# Le lanceur installe d'abord Torch 2.6 et torchaudio 2.6 CUDA 11.8 (ou CPU).
+chatterbox-tts==0.1.7
+# PerTh 1.0.1 utilise encore pkg_resources, retiré des setuptools récents.
+resemble-perth==1.0.1
+setuptools==80.9.0
+PyYAML==6.0.3
+truststore>=0.10,<1

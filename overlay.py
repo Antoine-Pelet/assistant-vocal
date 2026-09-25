@@ -145,7 +145,7 @@ def _boucle():
     corps = tk.Frame(cadre, bg=fond)
     corps.pack(side="left", fill="both", expand=True, padx=14, pady=12)
 
-    lbl_tag = tk.Label(corps, text="JARVIS", bg=fond, fg=accent,
+    lbl_tag = tk.Label(corps, text="RED", bg=fond, fg=accent,
                        font=("Segoe UI Semibold", 9), anchor="w")
     lbl_tag.pack(fill="x")
     lbl_titre = tk.Label(corps, text="", bg=fond, fg=txtcol, justify="left",
@@ -267,7 +267,7 @@ def _duree_auto(texte):
 # ============================================================ cartes (extensible)
 
 def _carte_reponse(lab, texte, extra):
-    lab["tag"].config(text="JARVIS")
+    lab["tag"].config(text="RED")
     lab["corps"].config(text=texte)
     lab["corps"].pack(fill="x", pady=(4, 0))
 

@@ -163,13 +163,13 @@ def _twiml(message):
     description="Appelle un numero par telephone (Twilio), joue un message parle, "
                 "enregistre la reponse et la transcrit. Pour 'appelle le resto et "
                 "demande s'ils sont ouverts ce soir', 'appelle ce numero pour dire...'. "
-                "Jarvis se presente comme assistant automatise. Confirmation requise.",
+                "Red se presente comme assistant automatise. Confirmation requise.",
     parametres={
         "type": "object",
         "properties": {
             "numero": {"type": "string", "description": "Numero a appeler (06..., +33...)."},
             "message": {"type": "string",
-                        "description": "Ce que Jarvis doit dire/demander (sans se presenter, "
+                        "description": "Ce que Red doit dire/demander (sans se presenter, "
                                        "la presentation est ajoutee automatiquement)."},
         },
         "required": ["numero", "message"],

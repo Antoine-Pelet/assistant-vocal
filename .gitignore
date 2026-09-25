@@ -9,6 +9,10 @@ wheels/
 # Virtual environments
 .venv
 .venv-red/
+.venv-chatterbox/
+# Références vocales privées, non distribuées avec le projet.
+voices/**/*.wav
+voices/*.wav
 .cache/
 models/
 runtime/
@@ -57,3 +61,6 @@ musique/captures/
 # Cockpit : donnees financieres PERSO (tout le dossier sauf l'exemple versionne).
 finances/*
 !finances/abonnements.example.yaml
+
+# Mémoire locale, zones chiffrées et historique privé.
+data/memoire.sqlite3*

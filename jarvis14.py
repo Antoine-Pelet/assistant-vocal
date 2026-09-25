@@ -35,6 +35,8 @@ import sounddevice as sd
 from faster_whisper import WhisperModel
 
 from core import config, journal, memoire, personnalite, registre, voix
+from core.contexte import contextual, bind, current
+from services.existing import ExistingLLM
 from core.reveil import charger_reveil, mot_activation, retirer_activation
 from core.util import nettoyer_reponse_vocale, sans_accents
 from tools.lumieres import allumer_si_nuit, charger_pieces_hue
@@ -76,7 +78,7 @@ SEUIL_INTERRUPTION = config.reglage("assistant.seuil_interruption", 0.7)  # coup
 # assistant.auto_calibration. C'est le « regler les niveaux » du retour testeur.
 SEUIL_PAROLE_SUR = config.reglage("assistant.seuil_parole", 0.025)   # au-dessus = parole sure
 SEUIL_SILENCE = config.reglage("assistant.seuil_silence", 0.010)     # en-dessous = silence
-SILENCE_FIN = config.reglage("assistant.silence_fin", 1.2)           # s de silence -> fin de phrase
+SILENCE_FIN = config.reglage("assistant.silence_fin", 1.6)           # s de silence -> fin de phrase
 DUREE_MAX = config.reglage("assistant.duree_max", 20)                # s max d'enregistrement
 BLOCS_AVANT_VERIF = 5      # 5 x 80 ms = 0,4 s de parole continue
 DELAI_ENTRE_VERIFS = 1.0
@@ -89,12 +91,19 @@ LOG = journal.obtenir()
 
 # Sentinel renvoye par repondre() quand une action attend une confirmation vocale.
 SENTINEL_CONFIRM = "\x00confirmation\x00"
+SENTINEL_VEILLE = "\x00veille\x00"
+
+
+class ArretAssistant(Exception):
+    """Sortie normale de Red demandée à la voix (ne concerne pas Windows)."""
+
 
 # Regles de base (format vocal, outils). La personnalite (persona) est ajoutee
 # devant, et la memoire derriere, par _refaire_systeme.
 SYSTEME_BASE = (
     "Tes reponses sont lues a voix haute : reponds en une a deux phrases maximum "
     "(une seule si possible), sans listes, sans titres, sans asterisques ni emoji. "
+    "Lorsque tu attends une réponse, pose une seule question courte, sans énumérer les réponses possibles ni expliquer comment répondre, sauf demande explicite de l'utilisateur. "
     "Parle naturellement, en francais. Va a l'essentiel. Ne pose jamais deux fois "
     "la meme question et ne redemande pas une confirmation deja demandee. "
     "Ne commence jamais une reponse finale par une phrase d'attente comme "
@@ -102,8 +111,10 @@ SYSTEME_BASE = (
     "lui-meme une progression uniquement lorsqu'un outil lent est vraiment lance. "
     "Tu disposes d'outils pour agir sur l'ordinateur : utilise-les quand "
     "l'utilisateur demande une action, et confirme brievement ce que tu as fait. "
-    "Quand l'utilisateur exprime une preference, mentionne un proche ou parle d'un "
-    "projet en cours, appelle remember pour t'en souvenir, sans le commenter. "
+    "Pour retenir ou modifier un souvenir, propose remember ; pour l'effacer, propose forget. "
+    "Toute modification de mémoire exige un accord explicite à chaque fois. "
+    "Le système présente le changement et pose une question courte. Ne prétends jamais "
+    "avoir mémorisé avant la validation. Les zones protégées se gèrent dans le panneau. "
     "Pour les mails : prepare un brouillon avec preparer_mail et lis-le ; appelle "
     "envoyer_mail quand l'utilisateur veut envoyer (le systeme demandera confirmation). "
     "Si la question fait reference a ce qui est affiche (qu'est-ce que c'est, lis "
@@ -130,6 +141,21 @@ SYSTEME_BASE = (
 # Consigne systeme courante (persona + regles + memoire). Passee a chaque appel
 # Claude via le parametre `system`, distinct de la liste des messages.
 SYSTEME_COURANT = SYSTEME_BASE
+_SIGNATURE_MEMOIRE = None
+
+
+def _actualiser_memoire(historique, protegees=False):
+    """Retire les anciens tours dès qu'un accès, une date ou un souvenir change."""
+    global _SIGNATURE_MEMOIRE
+    signature, faits = memoire.contexte(protegees=protegees)
+    signature = (bool(protegees), signature)
+    if _SIGNATURE_MEMOIRE is not None and signature != _SIGNATURE_MEMOIRE:
+        dernier = next((m for m in reversed(historique) if m.get("role") == "user"
+                        and isinstance(m.get("content"), str)), None)
+        historique[:] = [dernier] if dernier else []
+    _SIGNATURE_MEMOIRE = signature
+    _refaire_systeme(faits)
+    return signature
 
 
 def _refaire_systeme(memoire_courante):
@@ -262,6 +288,13 @@ def bip(frequence=880, duree=0.12):
 
 
 _PROCESSUS_PAROLE = None
+_VERROU_PAROLE = threading.RLock()
+_CONTEXTE_REPONSE = threading.local()
+_NUMERO_ACCUSE = 0
+_TOUR_ACTIF = None
+_DETECTEUR_INTERRUPTION = None
+_TEXTE_PARLE = ""
+_AUDIO_INTERRUPTION = deque(maxlen=25)
 _INTERRUPTION = threading.Event()
 _PARLE = threading.Event()   # vrai UNIQUEMENT pendant que Jarvis joue de l'audio :
                              # c'est la seule fenetre ou on ecoute une interruption.
@@ -278,6 +311,8 @@ def basculer_micro(force=None):
     else:
         _MICRO_MUET.clear()
     muet = _MICRO_MUET.is_set()
+    if muet:
+        couper_parole()
     try:
         bip(400 if muet else 900, 0.10)
     except Exception:
@@ -287,9 +322,16 @@ def basculer_micro(force=None):
     return muet
 
 
+def _est_interrompu():
+    annulation = getattr(_CONTEXTE_REPONSE, "annulation", None)
+    return _INTERRUPTION.is_set() or (annulation is not None and annulation.is_set())
+
+
 def couper_parole():
     """Arrete immediatement la synthese en cours (ElevenLabs ou SAPI)."""
     _INTERRUPTION.set()
+    if _TOUR_ACTIF is not None:
+        _TOUR_ACTIF.set()
     try:
         sd.stop()          # coupe la lecture ElevenLabs sur le haut-parleur
     except Exception:
@@ -304,19 +346,31 @@ def couper_parole():
 
 def _jouer_audio(audio, frequence):
     """Joue un tableau int16 mono sur le haut-parleur, interruptible."""
-    if _INTERRUPTION.is_set():
+    if _est_interrompu():
         return
     sd.play(audio, samplerate=frequence, device=_haut_parleur())
-    while not _INTERRUPTION.is_set():
+    while not _est_interrompu():
         courant = sd.get_stream()
         if courant is None or not courant.active:
             break
         time.sleep(0.03)
-    if _INTERRUPTION.is_set():
+    if _est_interrompu():
         sd.stop()
 
 
 def dire(texte, interruptible=True):
+    # La réponse finale attend son accusé de réception ; toutes les voix sont
+    # sérialisées pour ne pas écraser sd.play() ni partager Piper simultanément.
+    fil = getattr(_CONTEXTE_REPONSE, "accuse", None)
+    if fil is not None and fil is not threading.current_thread():
+        fil.join()
+    with _VERROU_PAROLE:
+        debut = time.monotonic()
+        _dire(texte, interruptible)
+        LOG.info("voix %.3fs (%s caracteres)", time.monotonic() - debut, len(texte or ""))
+
+
+def _dire(texte, interruptible=True):
     """Prononce un texte via le provider TTS courant (ElevenLabs en cloud, Piper en
     local) ; repli sur la voix Windows (SAPI) si le provider est indisponible.
 
@@ -325,10 +379,14 @@ def dire(texte, interruptible=True):
     pas une interruption)."""
     if _overlay is not None and _overlay.est_muet():   # mode "silencieux visuel" :
         return                                          # la reponse s'affiche, pas de TTS.
-    if _INTERRUPTION.is_set():
+    if _est_interrompu():
         return
+    global _TEXTE_PARLE
     from core.tts import tts
     resultat = tts().synthetiser(texte)
+    if _est_interrompu():
+        return
+    _TEXTE_PARLE = texte
     if interruptible:
         _PARLE.set()      # a partir d'ici Jarvis parle : on peut l'interrompre
     try:
@@ -338,9 +396,10 @@ def dire(texte, interruptible=True):
             _dire_sapi(texte)
     finally:
         _PARLE.clear()    # fin de la parole : plus d'interruption possible
+        _TEXTE_PARLE = ""
 
 
-def _dire_sapi(texte):
+def _dire_sapi(texte, confidentiel=False):
     """Synthese vocale Windows (SAPI), voix francaise si disponible.
 
     Le texte est envoye au script PowerShell par l'entree standard, jamais dans
@@ -349,7 +408,7 @@ def _dire_sapi(texte):
     """
     global _PROCESSUS_PAROLE
 
-    if _INTERRUPTION.is_set():
+    if _est_interrompu():
         return
 
     script = (
@@ -374,9 +433,13 @@ def _dire_sapi(texte):
     )
     _PROCESSUS_PAROLE = processus
     try:
+        if _est_interrompu():
+            processus.terminate()
+            processus.communicate()
+            return
         _, erreurs = processus.communicate(input=texte.encode("utf-8"))
-        if processus.returncode and not _INTERRUPTION.is_set():
-            details = (erreurs or b"").decode("utf-8", "replace").strip()
+        if processus.returncode and not _est_interrompu():
+            details = "Lecture confidentielle interrompue." if confidentiel else (erreurs or b"").decode("utf-8", "replace").strip()
             print(f"  [SAPI] echec (code {processus.returncode}) : {details}")
     finally:
         _PROCESSUS_PAROLE = None
@@ -420,14 +483,8 @@ MOTS_OUI = (
 
 
 def type_arret(texte):
-    """Renvoie 'relance', 'fin' ou None selon l'ordre d'arret detecte."""
-    plat = sans_accents(texte.replace("’", "'").replace("‘", "'"))
-    plat = "".join(c if c.isalnum() or c in " '-" else " " for c in plat)
-    if any(m in plat for m in MOTS_RELANCE):
-        return "relance"
-    if any(m in plat for m in MOTS_FIN):
-        return "fin"
-    return None
+    from core.commandes_vocales import commande_assistant
+    return "relance" if commande_assistant(texte) in {"silence", "veille", "quitter"} else None
 
 
 def _est_oui(texte):
@@ -484,7 +541,7 @@ def _parleur(fil):
         phrase = fil.get()
         if phrase is None:
             break
-        if _INTERRUPTION.is_set():
+        if _est_interrompu():
             continue
         texte = phrase.strip()
         if texte:
@@ -494,14 +551,14 @@ def _parleur(fil):
 def dire_en_flux(morceaux):
     """Consomme un generateur de fragments et les dit phrase par phrase."""
     fil = queue.Queue()
-    thread = threading.Thread(target=_parleur, args=(fil,), daemon=True)
+    thread = threading.Thread(target=bind(_parleur), args=(fil,), daemon=True)
     thread.start()
 
     tampon = ""
     complet = []
     try:
         for fragment in morceaux:
-            if _INTERRUPTION.is_set():
+            if _est_interrompu():
                 break
             if not fragment:
                 continue
@@ -538,6 +595,8 @@ def _executer_outils(blocs):
     for bloc in blocs:
         if getattr(bloc, "type", None) != "tool_use":
             continue
+        if _est_interrompu():
+            break
         nom = bloc.name
         arguments = bloc.input or {}
         outil = registre.get(nom)
@@ -616,13 +675,8 @@ def _repondre_route_prioritaire_commune(historique):
 
     elif decision.type == "vision":
         from tools.ecran import analyser_ecran
-        _hud("etat", "parole")
-        fil_vision = threading.Thread(
-            target=dire, args=("Je regarde ton écran.",), daemon=True)
-        fil_vision.start()
         _hud("etat", "reflexion")
         texte = analyser_ecran(decision.tache)
-        fil_vision.join()
         nom_outil = "capture_screen"
 
     elif decision.type == "hermes":
@@ -639,27 +693,15 @@ def _repondre_route_prioritaire_commune(historique):
         outil = registre.get(nom_outil)
         if outil is None:
             return None
-        confirmation = outil.confirmation and not registre.est_autorise(nom_outil)
-        fil_accuse = None
-        if outil.lent and outil.phrase_attente and not confirmation:
-            _hud("etat", "parole")
-            fil_accuse = threading.Thread(
-                target=dire, args=(outil.phrase_attente,), daemon=True)
-            fil_accuse.start()
         from types import SimpleNamespace
         bloc = SimpleNamespace(type="tool_use", name=nom_outil,
                                input=decision.arguments, id="route-prioritaire-commune")
         resultats = _executer_outils([bloc])
-        if fil_accuse:
-            fil_accuse.join()
-
         annonce = registre.annonce_en_attente()
         if annonce:
             _hud("etat", "parole")
             phrase = annonce + " Tu confirmes ?"
-            if registre.niveau(nom_outil) == "N2":
-                phrase += " Tu peux dire oui, toujours."
-            if not _INTERRUPTION.is_set():
+            if not _est_interrompu():
                 dire(phrase, interruptible=False)
             return SENTINEL_CONFIRM
         texte = str(resultats[0]["content"] if resultats else "C'est fait.")
@@ -667,15 +709,39 @@ def _repondre_route_prioritaire_commune(historique):
     historique.append({"role": "assistant", "content": texte})
     _hud("outil", nom_outil, question[:60])
     _hud("etat", "parole")
-    if texte and not _INTERRUPTION.is_set():
+    if texte and not _est_interrompu():
         dire(texte)
     return texte
 
 
 def repondre(historique):
+    """Accuse réception dès la transcription, pendant que le modèle travaille."""
+    global _NUMERO_ACCUSE
+    fil = None
+    if config.reglage("assistant.accuse_reception", True):
+        phrases = ("Compris.", "Très bien, je regarde ça.", "D'accord, je m'en occupe.")
+        phrase = phrases[_NUMERO_ACCUSE % len(phrases)]
+        _NUMERO_ACCUSE += 1
+        _hud("dire_jarvis", phrase)
+        annulation = getattr(_CONTEXTE_REPONSE, "annulation", None)
+        def prononcer_accuse():
+            _CONTEXTE_REPONSE.annulation = annulation
+            dire(phrase)
+        fil = threading.Thread(target=bind(prononcer_accuse), name="accuse-reception", daemon=True)
+        _CONTEXTE_REPONSE.accuse = fil
+        fil.start()
+    try:
+        return _repondre_sans_accuse(historique)
+    finally:
+        if fil:
+            fil.join()
+        _CONTEXTE_REPONSE.accuse = None
+
+
+def _repondre_sans_accuse(historique):
     """Interroge le LLM actif et boucle sur les appels d'outils jusqu'a la reponse.
 
-    Pour les outils lents, prononce un accuse de reception en parallele. Pour
+    L’accusé commun est lancé par repondre(). Pour
     les outils a confirmation, prononce l'annonce et renvoie SENTINEL_CONFIRM
     (la suite est geree par traiter, qui capture la reponse oui/non).
     """
@@ -694,8 +760,6 @@ def repondre(historique):
         return ("Ma cle OpenAI n'est pas configuree." if cloud.fournisseur() == "openai"
                 else "Ma cle Anthropic n'est pas configuree.")
 
-    fil_accuse = None
-    accuse_donne = False
     question = next((m.get("content") for m in reversed(historique)
                      if m.get("role") == "user" and isinstance(m.get("content"), str)), "")
     from core.routage_intentions import modules_pour_phrase
@@ -711,31 +775,32 @@ def repondre(historique):
 
     def arreter_tour(texte):
         """Clôt proprement une erreur/limite et la rend audible."""
-        if fil_accuse:
-            fil_accuse.join(timeout=2)
         historique.append({"role": "assistant", "content": texte})
         _hud("etat", "parole")
-        if texte and not _INTERRUPTION.is_set():
+        if texte and not _est_interrompu():
             dire(texte)
         return texte
 
     # max_tours_outils tours avec outils, puis un dernier appel autorisé pour
     # formuler la réponse finale à partir des résultats.
     for numero_tour in range(max_tours_outils + 1):
-        if _INTERRUPTION.is_set():
-            if fil_accuse:
-                fil_accuse.join(timeout=2)
+        if _est_interrompu():
             return ""
         if time.monotonic() - debut_tour > timeout_tour:
             LOG.warning("tour LLM interrompu après %.1fs", time.monotonic() - debut_tour)
             return arreter_tour("J'arrête cette demande : elle prend trop de temps.")
         try:
+            from urllib.parse import urlsplit
+            protegees = (config.reglage("mode", "local") == "local" and fournisseur.nom == "Ollama" and
+                          urlsplit(str(getattr(fournisseur, "hote", ""))).hostname
+                          in ("localhost", "127.0.0.1", "::1"))
+            signature_memoire = _actualiser_memoire(historique, protegees)
             debut_llm = time.monotonic()
-            reponse = fournisseur.repondre(
+            reponse = ExistingLLM(fournisseur).respond(
                 SYSTEME_COURANT, historique,
                 registre.schemas_api(
                     local_seulement=(fournisseur.nom == "Ollama"),
-                    modules=modules_outils))
+                    modules=modules_outils), current())
             LOG.info("latence LLM %s %.3fs (tour=%s, outils=%s)",
                      fournisseur.nom, time.monotonic() - debut_llm,
                      numero_tour + 1,
@@ -745,6 +810,12 @@ def repondre(historique):
             LOG.exception("appel LLM en echec")
             return arreter_tour("Je n'arrive pas a joindre le modele pour le moment.")
 
+        if _est_interrompu():
+            return ""
+
+        if _actualiser_memoire(historique, protegees) != signature_memoire:
+            return arreter_tour("L'accès à la mémoire a changé pendant ma réponse. Peux-tu répéter ta demande ?")
+
         if reponse.stop_reason == "tool_use":
             _hud("etat", "reflexion")
             noms = [b.name for b in reponse.content
@@ -752,48 +823,31 @@ def repondre(historique):
             if numero_tour >= max_tours_outils or appels_outils + len(noms) > max_appels_outils:
                 LOG.warning("limite d'outils atteinte (tours=%s, appels=%s, nouveaux=%s)",
                             numero_tour, appels_outils, len(noms))
-                if fil_accuse:
-                    fil_accuse.join()
                 return arreter_tour(
                     "J'arrête ici pour éviter une boucle d'actions. "
                     "Reformule la tâche plus précisément si tu veux que je continue.")
             appels_outils += len(noms)
-            if (not accuse_donne and not _INTERRUPTION.is_set()
-                    and any(n in registre.noms_lents() for n in noms)):
-                accuse_donne = True
-                _hud("etat", "parole")
-                fil_accuse = threading.Thread(
-                    target=dire, args=(registre.phrase_attente(noms),), daemon=True)
-                fil_accuse.start()
-
             historique.append({"role": "assistant", "content": reponse.content})
             resultats = _executer_outils(reponse.content)
             historique.append({"role": "user", "content": resultats})
 
             annonce = registre.annonce_en_attente()
             if annonce:
-                if fil_accuse:
-                    fil_accuse.join()
                 _hud("etat", "parole")
                 phrase = annonce + " Tu confirmes ?"
-                # Pour un outil N2, rappeler qu'on peut memoriser l'autorisation.
-                if registre.niveau(registre.nom_en_attente() or "") == "N2":
-                    phrase += " Tu peux dire oui, toujours."
-                if not _INTERRUPTION.is_set():
+                if not _est_interrompu():
                     dire(phrase, interruptible=False)
                 return SENTINEL_CONFIRM
             continue
 
         # Reponse finale. On attend la fin de l'accuse pour ne pas parler dessus.
-        if fil_accuse:
-            fil_accuse.join()
         texte = " ".join(
             b.text for b in reponse.content if getattr(b, "type", None) == "text"
         ).strip()
         texte = nettoyer_reponse_vocale(texte)
         historique.append({"role": "assistant", "content": texte})
         _hud("etat", "parole")
-        if texte and not _INTERRUPTION.is_set():
+        if texte and not _est_interrompu():
             dire(texte)
         return texte
 
@@ -923,53 +977,30 @@ def _calibrer_seuils(flux, secondes=1.0):
     return seuil_silence, seuil_parole
 
 
-def capturer(flux, tampon, duree_min=0.6, attente_debut=None):
-    """Enregistre depuis le micro jusqu'au silence. Renvoie l'audio ou None.
-
-    duree_min : durée minimale (s) en dessous de laquelle on considère qu'il n'y
-    a rien eu. Plus court pour une confirmation (un « oui » rapide doit compter).
-    attente_debut : temps laissé pour COMMENCER à parler avant d'abandonner (par
-    défaut SILENCE_FIN). Plus long pour une confirmation (laisser le temps de
-    répondre « oui/non »). Une fois la parole commencée, la fin reste sur
-    SILENCE_FIN de silence."""
-    morceaux = list(tampon)
-    debut = time.time()
-    dernier_son = time.time()
-    a_parle = False
-    seuil_debut = attente_debut if attente_debut is not None else SILENCE_FIN
-
-    while True:
-        bloc = lire_bloc(flux)
-        morceaux.append(bloc)
-        _hud("niveau", _niv_hud(bloc))
-
-        if niveau(bloc) > SEUIL_SILENCE:
-            dernier_son = time.time()
-            a_parle = True
-        # Avant de parler : on patiente jusqu'a seuil_debut. Apres : fin de phrase
-        # des SILENCE_FIN de silence.
-        limite = SILENCE_FIN if a_parle else seuil_debut
-        if time.time() - dernier_son > limite:
-            break
-        if time.time() - debut > DUREE_MAX:
-            print("  (trop long, je coupe)")
-            break
-
-    tampon.clear()
-    audio = np.concatenate(morceaux)
-    return audio if len(audio) >= TAUX * duree_min else None
+def capturer(flux, tampon, duree_min=0.3, attente_debut=None):
+    from core.conversation_audio import capturer_phrase
+    return capturer_phrase(
+        lambda: lire_bloc(flux), tampon, taux=TAUX, seuil=SEUIL_SILENCE,
+        silence_fin=float(config.reglage("assistant.silence_fin", 1.6)),
+        attente_debut=float(config.reglage("assistant.attente_debut", 4.0))
+            if attente_debut is None else attente_debut,
+        duree_max=DUREE_MAX, duree_min=duree_min,
+        observer=lambda b: _hud("niveau", _niv_hud(b)))
 
 
-def attendre_suite(flux, tampon, duree=DUREE_SUITE):
+def attendre_suite(flux, tampon, duree=None):
     """Ecoute quelques secondes apres une reponse, sans mot d'activation.
 
     Renvoie True si l'utilisateur recommence a parler, False si silence.
     """
     _hud("etat", "ecoute")
     tampon.clear()
-    debut = time.time()
+    duree = float(config.reglage("assistant.duree_suite", 10)) if duree is None else duree
+    debut = time.monotonic()
     blocs_voix = 0
-    while time.time() - debut < duree:
+    while time.monotonic() - debut < duree:
+        if _MICRO_MUET.is_set():
+            return False
         try:
             bloc = lire_bloc(flux)
         except Exception:
@@ -985,122 +1016,173 @@ def attendre_suite(flux, tampon, duree=DUREE_SUITE):
     return False
 
 
-def repondre_en_ecoutant(historique, flux, reveil, whisper):
-    """Repond tout en surveillant le micro (mot d'activation ou ordre d'arret).
-
-    Renvoie (texte, interrompu, relancer).
-    """
+def _dire_en_vidant_micro(texte, flux):
     _INTERRUPTION.clear()
+    _hud("etat", "parole")
+    _hud("dire_jarvis", texte)
+    fil = threading.Thread(target=bind(dire), args=(texte, False), daemon=True)
+    fil.start()
+    detecteur = _DETECTEUR_INTERRUPTION
+    if detecteur:
+        detecteur.reset()
+    while fil.is_alive():
+        try:
+            bloc = lire_bloc(flux)
+            if detecteur and _TEXTE_PARLE and not _MICRO_MUET.is_set():
+                if detecteur.analyser((bloc * 32767).astype(np.int16), _TEXTE_PARLE):
+                    couper_parole()
+                    break
+        except Exception:
+            break
+    fil.join()
+    try:
+        disponibles = int(flux.read_available)
+        if disponibles > 0:
+            flux.read(disponibles)
+    except Exception:
+        pass
+
+
+def attendre_apres_reponse(flux, tampon, whisper, reveil, delai_initial=None, forcer_confirmation=False):
+    """Retourne (audio, transcription éventuelle), ou None après accord/mute."""
+    if not forcer_confirmation and attendre_suite(flux, tampon, duree=delai_initial):
+        audio = capturer(flux, tampon)
+        if audio is not None:
+            return audio, None
+    if _MICRO_MUET.is_set() or (not forcer_confirmation and not config.reglage("assistant.confirmer_veille", True)):
+        return None
+    _dire_en_vidant_micro("Est-ce que je peux me mettre en veille ?", flux)
+    _hud("confirmation", True)
+    reveil.reset()
+    bip()
+    premiere = True
+    from core.conversation_audio import intention_veille
+    try:
+        while not _MICRO_MUET.is_set():
+            _hud("etat", "ecoute")
+            if not premiere and not attendre_suite(flux, tampon, duree=30.0):
+                continue
+            premiere = False
+            audio = capturer(flux, tampon, duree_min=0.2,
+                attente_debut=float(config.reglage("assistant.attente_confirmation", 6.0)))
+            if audio is None:
+                continue  # le silence ne vaut pas un accord et ne répète pas la question
+            texte = transcrire_demande(whisper, audio)
+            from core.commandes_vocales import commande_assistant
+            controle = commande_assistant(texte)
+            if controle == "quitter":
+                _arreter_assistant(flux)
+            if controle == "silence":
+                continue
+            intention = "veille" if controle == "veille" else intention_veille(texte)
+            _hud("dire_vous", texte)
+            if intention == "veille":
+                _dire_en_vidant_micro("Très bien, je passe en veille.", flux)
+                tampon.clear()
+                reveil.reset()
+                return None
+            if intention == "commande":
+                return audio, texte
+            if intention == "continuer":
+                _dire_en_vidant_micro("Je reste à l'écoute.", flux)
+    finally:
+        _hud("confirmation", False)
+    return None
+
+
+def repondre_en_ecoutant(historique, flux, reveil, whisper):
+    """Surveille les commandes courtes en continu, sans attendre 400 ms de cri."""
+    global _TOUR_ACTIF
+    _INTERRUPTION.clear()
+    _AUDIO_INTERRUPTION.clear()
+    annulation = threading.Event()
+    _TOUR_ACTIF = annulation
     resultat = {}
+    historique_tour = list(historique)
+    detecteur = _DETECTEUR_INTERRUPTION
+    if detecteur:
+        detecteur.reset()
 
     def travail():
+        _CONTEXTE_REPONSE.annulation = annulation
         try:
-            resultat["texte"] = repondre(historique)
+            resultat["texte"] = repondre(historique_tour)
         except Exception as e:
             resultat["erreur"] = e
 
-    thread = threading.Thread(target=travail, daemon=True)
+    thread = threading.Thread(target=bind(travail), daemon=True)
     thread.start()
-
     interrompu = False
-    relancer = False
-
-    # Detection d'un ordre ("attends", "stop"...) prononce PAR-DESSUS Jarvis. Le micro
-    # entend aussi l'enceinte : on suit en continu le niveau de reference (l'echo de
-    # Jarvis) et on ne reagit que si tu parles nettement PLUS FORT que cet echo. On
-    # transcrit alors seulement TON extrait (pas les 2 s dominees par la voix de Jarvis).
-    facteur = float(config.reglage("interruption.facteur", 1.8))
-    seuil_min = float(config.reglage("interruption.seuil", SEUIL_PAROLE_SUR))
-    blocs_requis = int(config.reglage("interruption.blocs", BLOCS_AVANT_VERIF))
-    debug = bool(config.reglage("interruption.debug", False))
-
-    base = None            # niveau moyen de l'echo de Jarvis (suivi en continu)
-    tampon = []            # audio de TA parole par-dessus
-    blocs_sur = 0
+    tampon = deque(maxlen=25)
+    voix = 0
     derniere_verif = 0.0
-
     while thread.is_alive():
-        # Pendant une capture musicale, l'outil prend le micro (flux stoppe) : on ne
-        # lit pas flux (sinon read leve), mais on RESTE dans la boucle pour ne pas
-        # declencher le join anticipe -> la reponse pourra bien etre dite ensuite.
+        if annulation.is_set():
+            interrompu = True
+            break
         if _CAPTURE_MUSIQUE.is_set():
             time.sleep(0.05)
             continue
         try:
-            bloc = lire_bloc(flux)          # 16 kHz (rééchantillonné si micro 48 kHz)
+            bloc = lire_bloc(flux)
         except Exception:
             if _CAPTURE_MUSIQUE.is_set():
-                time.sleep(0.05)
                 continue
+            couper_parole()
+            interrompu = True
             break
         _hud("niveau", _niv_hud(bloc))
-
-        # On ne surveille l'interruption QUE pendant que Jarvis parle vraiment.
-        # Pendant qu'il reflechit (appel LLM, outils), on ne coupe rien : la reponse
-        # ne peut donc pas etre "perdue" par une fausse detection avant d'etre dite.
-        if not _PARLE.is_set():
-            base = None
-            blocs_sur = 0
-            tampon = []
+        if _MICRO_MUET.is_set() or not _PARLE.is_set():
+            tampon.clear()
+            voix = 0
+            if detecteur:
+                detecteur.reset()
             continue
-
-        # voie 1 : le mot d'activation
-        scores = reveil.predict((bloc * 32767).astype(np.int16))
-        if max(scores.values()) >= SEUIL_INTERRUPTION:
+        tampon.append(bloc)
+        pcm = (bloc * 32767).astype(np.int16)
+        dit = None
+        if detecteur:
+            dit = detecteur.analyser(pcm, _TEXTE_PARLE,
+                                    seuil=min(SEUIL_PAROLE_SUR, 0.006))
+        else:
+            # Repli pour une installation sans Vosk : garder aussi le début
+            # et la fin du mot court, puis vérifier au premier silence.
+            if max(reveil.predict(pcm).values()) >= SEUIL_INTERRUPTION:
+                dit = mot_activation()
+            voix += int(niveau(bloc) > SEUIL_SILENCE)
+            maintenant = time.monotonic()
+            if (not dit and voix >= 2 and niveau(bloc) <= SEUIL_SILENCE
+                    and maintenant - derniere_verif >= 0.5):
+                derniere_verif = maintenant
+                extrait = np.pad(np.concatenate(tampon), (0, 3200))
+                seg, _ = whisper.transcribe(extrait, language="fr", beam_size=1,
+                                            condition_on_previous_text=False)
+                candidat = " ".join(x.text for x in seg).strip()
+                if type_arret(candidat):
+                    dit = candidat
+                voix = 0
+        if dit:
             couper_parole()
-            interrompu, relancer = True, True
-            print("  [micro] Je me tais.")
+            interrompu = True
+            from core.commandes_vocales import normaliser
+            # Garder « Red… » / « arrête… » pour finir de capter une commande
+            # plus longue après l'interruption, sans perdre son début.
+            if normaliser(dit) not in {"stop", "red stop", "chut", "silence", "tais toi", "arrete de parler"}:
+                _AUDIO_INTERRUPTION.extend(tampon)
+            print(f"  [micro] Parole interrompue : {dit}")
             break
 
-        # voie 2 : un ordre d'arret prononce par-dessus
-        niv = niveau(bloc)
-        if base is None:
-            base = niv
-        seuil_sur = max(seuil_min, base * facteur)
-        base = 0.97 * base + 0.03 * niv    # suit lentement l'echo de Jarvis
-
-        if niv > seuil_sur:
-            tampon.append(bloc)
-            blocs_sur += 1
-        else:
-            if 0 < blocs_sur < blocs_requis:
-                tampon = []                # trop court : simple bruit, on oublie
-            blocs_sur = 0
-
-        # On ne coupe QUE si on reconnait un mot d'arret ("attends", "stop"...)
-        # dans ce que tu dis par-dessus. Ainsi Jarvis ne peut jamais se couper
-        # lui-meme (sa propre voix n'est pas un mot d'arret) : pas de boucle.
-        maintenant = time.time()
-        if (blocs_sur >= blocs_requis
-                and maintenant - derniere_verif > DELAI_ENTRE_VERIFS):
-            derniere_verif = maintenant
-            extrait = np.concatenate(tampon[-30:])
-            tampon = []
-            blocs_sur = 0
-            try:
-                segments, _ = whisper.transcribe(extrait, language="fr", beam_size=1)
-                dit = " ".join(s.text for s in segments).strip()
-            except Exception:
-                dit = ""
-            if debug:
-                print(f"  [micro debug] niv={niv:.3f} base={base:.3f} "
-                      f"seuil={seuil_sur:.3f} -> entendu={dit!r}")
-            categorie = type_arret(dit) if dit else None
-            if categorie:
-                couper_parole()
-                interrompu = True
-                relancer = (categorie == "relance")
-                action = "Je t'ecoute" if relancer else "Compris"
-                print(f"  [micro] {action} : {dit}")
-                break
-
-    thread.join(timeout=10)
+    thread.join(timeout=0.5 if interrompu else 10)
     reveil.reset()
-
+    if _TOUR_ACTIF is annulation:
+        _TOUR_ACTIF = None
+    if interrompu:
+        registre.annuler_confirme()
+        return "", True, not _MICRO_MUET.is_set()
     if "erreur" in resultat:
         raise resultat["erreur"]
-
-    return resultat.get("texte", ""), interrompu, relancer
+    historique[:] = historique_tour
+    return resultat.get("texte", ""), False, False
 
 
 def _confirmer(interrompu, relancer, whisper, historique, flux):
@@ -1120,15 +1202,19 @@ def _confirmer(interrompu, relancer, whisper, historique, flux):
     print(f"  [confirmation] {reponse or '(rien)'}")
 
     memoriser = _est_toujours(reponse)
-    if _est_oui(reponse) or memoriser:
+    from core.memoire_store import accord_explicite
+    accord = (accord_explicite(reponse) if registre.nom_en_attente() in ("remember", "forget")
+              else (_est_oui(reponse) or memoriser))
+    if accord:
         res = registre.executer_confirme(memoriser=memoriser)
+        _refaire_systeme(memoire.charger())
     else:
         registre.annuler_confirme()
         res = "D'accord, j'annule."
 
     _hud("etat", "parole")
-    if res and not _INTERRUPTION.is_set():
-        dire(res)
+    if res and not _est_interrompu():
+        _dire_en_vidant_micro(res, flux)
     historique.append({"role": "assistant", "content": res})
     return res, False
 
@@ -1144,25 +1230,121 @@ def _tronquer(historique):
             historique.pop(0)
 
 
-def traiter(audio, whisper, historique, flux, reveil):
-    """Transcrit, repond, parle. Renvoie True si on doit enchainer (relance)."""
+def transcrire_demande(whisper, audio):
     debut_stt = time.monotonic()
-    segments, _ = whisper.transcribe(audio, language="fr", beam_size=5,
-                                    initial_prompt=f"{mot_activation().capitalize()}, assistant vocal.")
+    segments, _ = whisper.transcribe(audio, language="fr", beam_size=3,
+        condition_on_previous_text=False,
+        initial_prompt=f"{mot_activation().capitalize()}, assistant vocal.")
     question = nettoyer(" ".join(s.text for s in segments).strip())
-    LOG.info("latence STT %.3fs", time.monotonic() - debut_stt)
+    LOG.info("latence STT %.3fs (audio %.2fs)", time.monotonic() - debut_stt, len(audio) / TAUX)
+    return question
+
+
+def _arreter_assistant(flux):
+    couper_parole()
+    _dire_en_vidant_micro("D'accord, j'arrête Red. À bientôt.", flux)
+    raise ArretAssistant()
+
+
+def _lire_secret_local(whisper, flux, question):
+    """Capture dédiée : aucun nettoyage conversationnel, affichage, log ou fichier audio."""
+    audio_secret = None
+    segments = None
+    try:
+        _INTERRUPTION.clear()
+        _dire_en_vidant_micro(question, flux)
+        bip()
+        audio_secret = capturer(flux, deque(), duree_min=0.3, attente_debut=15.0)
+        if audio_secret is None or _est_interrompu():
+            return None
+        segments, _ = whisper.transcribe(audio_secret, language="fr", beam_size=5,
+                                         condition_on_previous_text=False)
+        texte = " ".join(s.text for s in segments).strip()
+        return None if _est_interrompu() else texte
+    finally:
+        if audio_secret is not None:
+            audio_secret.fill(0)
+        segments = None
+        _AUDIO_INTERRUPTION.clear()
+
+
+def _lecture_memoire_privee(store, identifiant, entrees):
+    """SAPI dans un processus éphémère : pas de modèle/TTS persistant, HUD ou journal."""
+    def revoquer():
+        couper_parole()
+    texte = ""
+    courantes = []
+    try:
+        with _VERROU_PAROLE:
+            with store.verrou:
+                _INTERRUPTION.clear()
+                store.observateurs.append(revoquer)
+                courantes = store.consulter(identifiant)
+                texte = "; ".join(e["contenu"] for e in courantes)
+                _PARLE.set()
+            _dire_sapi(texte, confidentiel=True)
+    finally:
+        texte = ""
+        courantes.clear()
+        entrees.clear()
+        _PARLE.clear()
+        if revoquer in store.observateurs:
+            store.observateurs.remove(revoquer)
+
+
+def _traiter_memoire_confidentielle(question, whisper, flux):
+    from core import memoire_vocale
+    from core.memoire_store import accord_explicite
+    if memoire_vocale.reconnaitre(question) is None:
+        return False
+    store = memoire.magasin()
+    def saisir(prompt):
+        return _lire_secret_local(whisper, flux, prompt)
+    def valider(prompt):
+        return accord_explicite(saisir(prompt) or "")
+    try:
+        return memoire_vocale.traiter(question, store, saisir, valider,
+            lambda texte: _dire_en_vidant_micro(texte, flux),
+            lambda zone, entrees: _lecture_memoire_privee(store, zone, entrees))
+    finally:
+        _AUDIO_INTERRUPTION.clear()
+
+
+@contextual
+def traiter(audio, whisper, historique, flux, reveil, question=None):
+    """Transcrit, répond, parle. True permet de reformuler sans mot d'activation."""
+    if question is None:
+        question = transcrire_demande(whisper, audio)
 
     if not question or len(question) < 3:
         print("  (rien compris)\n")
-        return False
+        _dire_en_vidant_micro("Je n’ai pas bien compris. Peux-tu répéter après le bip ?", flux)
+        bip()
+        return True
+
+    if _traiter_memoire_confidentielle(question, whisper, flux):
+        return True
 
     print(f"  Vous : {question}")
     _hud("dire_vous", question)
+    from core.commandes_vocales import commande_assistant
+    controle = commande_assistant(question)
+    if controle == "quitter":
+        _arreter_assistant(flux)
+    if controle == "veille":
+        return SENTINEL_VEILLE
+    if controle == "silence":
+        couper_parole()
+        _hud("dire_jarvis", "Parole interrompue.")
+        return True
     _hud("etat", "reflexion")
     historique.append({"role": "user", "content": question})
 
     texte, interrompu, relancer = repondre_en_ecoutant(historique, flux, reveil, whisper)
 
+    if interrompu:
+        _hud("dire_jarvis", "Parole interrompue.")
+        return relancer
     if texte == SENTINEL_CONFIRM:
         _hud("confirmation", True)
         texte, relancer = _confirmer(interrompu, relancer, whisper, historique, flux)
@@ -1171,12 +1353,12 @@ def traiter(audio, whisper, historique, flux, reveil):
         texte = "C'est fait."
         if not interrompu:
             _hud("etat", "parole")
-            dire(texte)
+            _dire_en_vidant_micro(texte, flux)
 
     _hud("dire_jarvis", texte)
     _afficher_overlay(texte)
     _hud_status()
-    print(f"  Jarvis : {texte}\n")
+    print(f"  Red : {texte}\n")
     _tronquer(historique)
     return relancer
 
@@ -1229,22 +1411,24 @@ def _installer_raccourci_gestes():
 
 
 def _installer_raccourci_micro():
-    """Raccourci clavier global pour couper/reactiver le wake word (mute micro)."""
-    combo = config.reglage("audio.raccourci_mute", "ctrl+alt+m")
-    if not combo:
-        return
     try:
         import keyboard
-    except Exception:
-        return  # lib optionnelle
-    try:
-        keyboard.add_hotkey(combo, basculer_micro)
-        print(f"Raccourci mute micro : {combo}")
-    except Exception:
-        LOG.exception("micro: raccourci clavier")
+    except ImportError:
+        return
+    for cle, defaut, action, label in (
+        ("audio.raccourci_mute", "ctrl+alt+m", basculer_micro, "mute micro"),
+        ("audio.raccourci_stop", "ctrl+alt+space", couper_parole, "couper la voix"),
+    ):
+        combo = config.reglage(cle, defaut)
+        if combo:
+            try:
+                keyboard.add_hotkey(combo, action)
+                print(f"Raccourci {label} : {combo}")
+            except Exception:
+                LOG.exception("raccourci %s", cle)
 
 
-def main():
+def _main():
     print("Chargement des modeles...")
 
     registre.charger_outils()
@@ -1257,6 +1441,15 @@ def main():
 
     whisper = charger_whisper()
     reveil = charger_reveil(whisper)
+    global _DETECTEUR_INTERRUPTION
+    try:
+        from core.interruption_vocale import DetecteurInterruption
+        modele_vosk = getattr(reveil, "_modele", None)
+        if modele_vosk is not None:
+            _DETECTEUR_INTERRUPTION = DetecteurInterruption(modele_vosk, mot_activation())
+            print("Interruption vocale active : dites stop pendant une réponse.")
+    except Exception:
+        LOG.exception("interruption Vosk indisponible, repli Whisper")
 
     # Les appels telephoniques reutilisent ce Whisper pour transcrire les reponses.
     from tools.appels import definir_transcripteur
@@ -1438,6 +1631,7 @@ def main():
     # Vosk a une légère latence : conserver le début d'une commande enchaînée.
     tampon = deque(maxlen=25)
     enchainer = False
+    audio_reprise = None
 
     try:
         while True:
@@ -1470,26 +1664,51 @@ def main():
                 print("  [micro] Oui ?")
                 bip()
 
-            audio = capturer(flux, tampon)
+            audio, question_reprise = audio_reprise if audio_reprise is not None else (capturer(flux, tampon), None)
+            audio_reprise = None
             if audio is None:
                 print("  (rien entendu)\n")
+                audio_reprise = attendre_apres_reponse(flux, tampon, whisper, reveil, delai_initial=0)
+                enchainer = audio_reprise is not None
+                if not enchainer:
+                    _hud("etat", "veille")
                 continue
 
-            if traiter(audio, whisper, historique, flux, reveil):
+            issue = traiter(audio, whisper, historique, flux, reveil, question=question_reprise)
+            if issue == SENTINEL_VEILLE:
+                audio_reprise = attendre_apres_reponse(flux, tampon, whisper, reveil,
+                                                       forcer_confirmation=True)
+                enchainer = audio_reprise is not None
+                if not enchainer:
+                    _hud("etat", "veille")
+                continue
+            if issue is True:
+                tampon.extend(_AUDIO_INTERRUPTION)
+                _AUDIO_INTERRUPTION.clear()
                 enchainer = True
                 continue
 
-            print(f"  [micro] J'ecoute encore {int(DUREE_SUITE)} s...")
-            enchainer = attendre_suite(flux, tampon)
+            print("  [micro] J'écoute la suite, puis je demanderai avant de passer en veille.")
+            audio_reprise = attendre_apres_reponse(flux, tampon, whisper, reveil)
+            enchainer = audio_reprise is not None
             if not enchainer:
                 _hud("etat", "veille")
 
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ArretAssistant):
         print("\nAu revoir.")
     finally:
         couper_parole()
         flux.stop()
         flux.close()
+
+
+def main():
+    from core.instance import InstanceUnique
+    with InstanceUnique(Path(__file__).resolve().parent / ".red-install/red.lock") as premiere:
+        if not premiere:
+            print("Red est déjà lancé. Utilise l'instance ouverte ou son panneau ; aucun second micro ne sera démarré.")
+            return
+        _main()
 
 
 if __name__ == "__main__":

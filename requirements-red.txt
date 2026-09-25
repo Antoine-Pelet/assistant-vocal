@@ -29,3 +29,5 @@ google-auth-oauthlib>=1.2
 icalendar>=6
 miniaudio>=1.61
 colorama>=0.4
+cryptography>=44
+PyNaCl>=1.6,<2

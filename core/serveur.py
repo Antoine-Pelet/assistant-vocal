@@ -41,7 +41,7 @@ def app():
     global _APP
     if _APP is None:
         from fastapi import FastAPI
-        _APP = FastAPI(title="Jarvis")
+        _APP = FastAPI(title="Red")
         from core.pont_iphone import monter_routes
         monter_routes(_APP)                       # /api/inbox, /api/ping
         try:
@@ -88,6 +88,8 @@ def demarrer():
         return
     import time
     import uvicorn
+    from core import memoire
+    memoire.magasin()  # Purge au lancement, puis à chaque échéance des sept jours.
     # SÉCURITÉ : loopback par défaut. Le tunnel ngrok se connecte en 127.0.0.1
     # (aucun impact) ; le panneau/cockpit/gestes ne sont donc PAS exposés au LAN.
     # Ne passe à "0.0.0.0" que si tu SAIS ce que tu fais (accès réseau local).

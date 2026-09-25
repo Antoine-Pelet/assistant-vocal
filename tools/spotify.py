@@ -111,7 +111,7 @@ def _playlist_id(nom=None, creer=True):
         uid = _me()["id"]
         r = requests.post(f"{_API}/users/{uid}/playlists", headers=_h(),
                           data=json.dumps({"name": cible, "public": False,
-                                           "description": "Trouvailles de Jarvis."}),
+                                           "description": "Trouvailles de Red."}),
                           timeout=15)
         r.raise_for_status()
         pid = r.json()["id"]

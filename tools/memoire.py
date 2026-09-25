@@ -1,131 +1,59 @@
-"""Memoire long terme : remember (memoriser), recall (chercher), forget (oublier).
-
-La memoire est structuree en preferences / people (proches) / projects / facts.
-Jarvis appelle remember automatiquement quand l'utilisateur exprime une
-preference, mentionne un proche ou parle d'un projet.
-"""
+"""Mémoire de Red : lecture, propositions et validation obligatoire de chaque écriture."""
 from core import memoire
 from core.registre import outil
-from core.util import sans_accents
+from core.memoire_store import normaliser, ErreurMemoire
 
-_CATEGORIES = {
-    "preference": "preferences", "preferences": "preferences", "pref": "preferences",
-    "personne": "people", "personnes": "people", "people": "people",
-    "proche": "people", "proches": "people", "contact": "people",
-    "projet": "projects", "projets": "projects", "project": "projects",
-    "fait": "facts", "faits": "facts", "fact": "facts", "info": "facts",
-}
+MUTATIONS = frozenset(("remember", "forget"))
+_CATEGORIES = {"preference": "preferences", "preferences": "preferences",
+               "personne": "people", "people": "people", "projet": "projects",
+               "projects": "projects", "fait": "facts", "facts": "facts"}
 
 
-@outil(
-    nom="remember",
-    description="Memorise durablement une information sur l'utilisateur. A appeler "
-                "AUTOMATIQUEMENT (sans commenter) quand il exprime une preference "
-                "('je prefere les lumieres chaudes le soir'), mentionne un proche, "
-                "ou parle d'un projet en cours. Choisis la bonne categorie.",
-    parametres={
-        "type": "object",
-        "properties": {
-            "categorie": {
-                "type": "string",
-                "enum": ["preference", "personne", "projet", "fait"],
-                "description": "Type d'information a memoriser.",
-            },
-            "contenu": {
-                "type": "string",
-                "description": "L'information, formulee clairement. "
-                               "Ex : 'aime les lumieres chaudes le soir'.",
-            },
-            "cle": {
-                "type": "string",
-                "description": "Etiquette courte (nom du proche, du projet, ou "
-                               "sujet de la preference). Facultatif pour un fait.",
-            },
-        },
-        "required": ["categorie", "contenu"],
-    },
-)
+def preparer(nom, args):
+    """Seul le contrôleur vocal appelle ceci. Aucun jeton ne vient du modèle."""
+    if nom == "remember":
+        cat = _CATEGORIES.get(normaliser(args.get("categorie", "fait")))
+        if not cat:
+            raise ErreurMemoire("Catégorie inconnue.")
+        return memoire.magasin().preparer("ajouter", dict(zone="generale", categorie=cat,
+            contenu=args.get("contenu"), cle=args.get("cle", "")), origine="voix")
+    if nom == "forget":
+        return memoire.magasin().preparer("oublier", dict(zone="generale", sujet=args.get("sujet")),
+                                          origine="voix")
+    raise ErreurMemoire("Action inconnue.")
+
+
+@outil(nom="remember", confirmation=True,
+       description="Propose d'ajouter un souvenir durable, ou de modifier celui qui porte la même clé. "
+                   "Chaque changement exige une confirmation de l'utilisateur. "
+                   "Les zones protégées se gèrent dans le panneau.",
+       parametres={"type": "object", "properties": {
+           "categorie": {"type": "string", "enum": ["preference", "personne", "projet", "fait"]},
+           "contenu": {"type": "string", "description": "Information exacte à retenir."},
+           "cle": {"type": "string", "description": "Même étiquette pour modifier une préférence, une personne ou un projet."}},
+           "required": ["categorie", "contenu"]})
 def remember(categorie: str, contenu: str, cle: str = "") -> str:
-    """Memorise une information dans la bonne categorie."""
-    contenu = (contenu or "").strip()
-    if not contenu:
-        return "Rien a retenir."
-    cat = _CATEGORIES.get(sans_accents(categorie).strip(), "facts")
-    cle = (cle or "").strip()
-
-    m = memoire.charger()
-    if cat == "facts":
-        if contenu not in m["facts"]:
-            m["facts"].append(contenu)
-    else:
-        etiquette = cle or contenu[:40]
-        m[cat][etiquette] = contenu
-    memoire.sauver(m)
-    return "C'est note."
+    return "Cette modification nécessite une validation sur le PC de Red, à la voix ou dans le panneau."
 
 
-@outil(
-    nom="recall",
-    description="Cherche une information dans la memoire long terme (preferences, "
-                "proches, projets, faits). A utiliser quand l'utilisateur demande "
-                "'qu'est-ce que tu sais sur...', 'tu te souviens de...'.",
-    parametres={
-        "type": "object",
-        "properties": {
-            "requete": {"type": "string",
-                        "description": "Sujet recherche (vide = tout resumer)."}
-        },
-    },
-)
+@outil(nom="forget", confirmation=True,
+       description="Propose d'oublier les souvenirs contenant ce sujet dans la zone générale. "
+                   "Red présente exactement les éléments concernés puis demande confirmation.",
+       parametres={"type": "object", "properties": {"sujet": {"type": "string"}}, "required": ["sujet"]})
+def forget(sujet: str) -> str:
+    return "Cette suppression nécessite une validation sur le PC de Red, à la voix ou dans le panneau."
+
+
+@outil(nom="recall", description="Recherche dans les souvenirs sans condition d'accès. "
+       "Les zones protégées sont accessibles uniquement sur le PC, après déverrouillage dans le panneau.",
+       parametres={"type": "object", "properties": {"requete": {"type": "string"}}})
 def recall(requete: str = "") -> str:
-    """Cherche dans la memoire ; sans requete, resume tout ce qui est connu."""
     m = memoire.charger()
-    besoin = sans_accents(requete).strip()
-
+    besoin = normaliser(requete).strip()
     trouves = []
     for cat in ("preferences", "people", "projects"):
         for cle, val in m[cat].items():
-            if not besoin or besoin in sans_accents(f"{cle} {val}"):
+            if not besoin or besoin in normaliser(f"{cle} {val}"):
                 trouves.append(f"{cle} : {val}")
-    for fait in m["facts"]:
-        if not besoin or besoin in sans_accents(fait):
-            trouves.append(fait)
-
-    if not trouves:
-        return "Je n'ai rien la-dessus." if besoin else "Je ne retiens rien pour l'instant."
-    return "Je retiens : " + " ; ".join(trouves)
-
-
-@outil(
-    nom="forget",
-    description="Oublie les informations memorisees contenant un sujet donne. A "
-                "utiliser quand l'utilisateur dit 'oublie...', 'efface ce que tu sais sur...'.",
-    parametres={
-        "type": "object",
-        "properties": {
-            "sujet": {"type": "string", "description": "Mot-cle a oublier."}
-        },
-        "required": ["sujet"],
-    },
-)
-def forget(sujet: str) -> str:
-    """Oublie tout ce qui contient ce sujet, dans toutes les categories."""
-    besoin = sans_accents(sujet).strip()
-    if not besoin:
-        return "Quoi oublier ?"
-
-    m = memoire.charger()
-    retires = 0
-    for cat in ("preferences", "people", "projects"):
-        for cle in list(m[cat]):
-            if besoin in sans_accents(f"{cle} {m[cat][cle]}"):
-                del m[cat][cle]
-                retires += 1
-    avant = len(m["facts"])
-    m["facts"] = [f for f in m["facts"] if besoin not in sans_accents(f)]
-    retires += avant - len(m["facts"])
-
-    if retires == 0:
-        return "Je n'ai rien la-dessus."
-    memoire.sauver(m)
-    return f"Oublie : {retires} element(s)."
+    trouves.extend(f for f in m["facts"] if not besoin or besoin in normaliser(f))
+    return "Je retiens : " + " ; ".join(trouves) if trouves else "Je n'ai aucun souvenir accessible à ce sujet."

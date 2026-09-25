@@ -18,6 +18,7 @@ Trois vues (une seule page a onglets) :
     montages Hermes). Les niveaux N1/N2/N3 et les revocations viendront avec la N8.
 """
 import json
+import math
 import logging
 import shutil
 import socket
@@ -423,7 +424,7 @@ def _definir_actif(backend, modele, profil="hybride", fournisseur=""):
         return {"ok": True, "message": f"{fournisseur.title()} {modele} actif en mode {profil}."}
     if backend == "whisper":
         definir("whisper.modele", modele)
-        return {"ok": True, "message": f"Whisper -> {modele}. Redemarre Jarvis."}
+        return {"ok": True, "message": f"Whisper -> {modele}. Redemarre Red."}
     if backend == "hermes":
         return _hermes_definir_modele(modele)
     return {"ok": False, "message": f"Backend inconnu : {backend}."}
@@ -433,10 +434,14 @@ def _definir_actif(backend, modele, profil="hybride", fournisseur=""):
 
 # Clés éditables depuis le panneau (whitelist stricte : jamais de secret/clé).
 _CLES_REGLABLES = {
-    "mode": "str", "audio.micro": "int", "audio.haut_parleur": "nint",
+    "mode": "str", "audio.micro": "audio", "audio.haut_parleur": "audio",
     "assistant.personnalite": "str", "assistant.duree_suite": "int",
-    "assistant.seuil_reveil": "float", "tts.moteur": "str",
+    "assistant.seuil_reveil": "float", "tts.moteur": "str", "tts.profil": "str",
     "elevenlabs.voix": "str", "elevenlabs.modele": "str",
+    "tts.voix_locale": "str", "assistant.stabilite_reveil": "int",
+    "assistant.confirmer_veille": "bool", "assistant.accuse_reception": "bool",
+    "assistant.silence_fin": "float", "assistant.attente_debut": "float",
+    "assistant.attente_confirmation": "float",
 }
 
 
@@ -444,11 +449,15 @@ def _audio_devices():
     try:
         import sounddevice as sd
         entrees, sorties = [], []
+        apis = sd.query_hostapis()
         for i, d in enumerate(sd.query_devices()):
+            api = apis[d["hostapi"]]["name"]
+            entree = {"index": i, "nom": d.get("name", ""), "interface": api,
+                      "valeur": f"{d['name']}, {api}"}
             if d.get("max_input_channels", 0) > 0:
-                entrees.append({"index": i, "nom": d.get("name", "")})
+                entrees.append(entree)
             if d.get("max_output_channels", 0) > 0:
-                sorties.append({"index": i, "nom": d.get("name", "")})
+                sorties.append(entree)
         return entrees, sorties
     except Exception:
         return [], []
@@ -482,15 +491,27 @@ def _elevenlabs_voix():
 
 
 def _reglages():
+    from core.voix_locales import catalogue, selection
     entrees, sorties = _audio_devices()
     return {
         "mode": reglage("mode", "cloud"),
-        "micro": reglage("audio.micro", 1),
+        "micro": reglage("audio.micro", None),
         "haut_parleur": reglage("audio.haut_parleur", None),
         "personnalite": reglage("assistant.personnalite", "jarvis_sarcastique"),
         "duree_suite": reglage("assistant.duree_suite", 10),
         "seuil_reveil": reglage("assistant.seuil_reveil", 0.5),
         "tts_moteur": reglage("tts.moteur", "auto"),
+        "chatterbox_profil": reglage("tts.profil", "jarvis"),
+        "chatterbox_profils": list((reglage("voices", {}) or {}).keys()),
+        "voix_locale": selection(), "voix_locales": catalogue(),
+        "mot_activation": reglage("assistant.mot_activation", "red"),
+        "moteur_reveil": reglage("assistant.moteur_reveil", "vosk"),
+        "stabilite_reveil": reglage("assistant.stabilite_reveil", 3),
+        "confirmer_veille": reglage("assistant.confirmer_veille", True),
+        "accuse_reception": reglage("assistant.accuse_reception", True),
+        "silence_fin": reglage("assistant.silence_fin", 1.6),
+        "attente_debut": reglage("assistant.attente_debut", 4.0),
+        "attente_confirmation": reglage("assistant.attente_confirmation", 6.0),
         "elevenlabs_voix": reglage("elevenlabs.voix", ""),
         "elevenlabs_modele": reglage("elevenlabs.modele", "eleven_flash_v2_5"),
         "elevenlabs": _elevenlabs_voix(),
@@ -501,32 +522,84 @@ def _reglages():
 
 def _definir_reglage(cle, valeur):
     from core.config import definir
+    if not isinstance(cle, str):
+        return {"ok": False, "message": "Réglage invalide."}
     typ = _CLES_REGLABLES.get(cle)
     if typ is None:
         return {"ok": False, "message": "Reglage non autorise."}
     try:
-        if typ == "nint":
+        if typ == "bool":
+            if isinstance(valeur, bool):
+                pass
+            elif isinstance(valeur, str) and valeur.lower() in {"true", "false"}:
+                valeur = valeur.lower() == "true"
+            else:
+                return {"ok": False, "message": "Choisis activé ou désactivé."}
+        elif isinstance(valeur, (list, dict, bool)):
+            return {"ok": False, "message": "Valeur invalide."}
+        if typ == "audio":
+            if valeur in (None, "", "defaut", "null"):
+                valeur = None
+            else:
+                entrees, sorties = _audio_devices()
+                candidats = entrees if cle == "audio.micro" else sorties
+                trouve = next((d for d in candidats if str(valeur) in {str(d["index"]), d["valeur"]}), None)
+                if trouve is None:
+                    return {"ok": False, "message": "Périphérique audio absent. Connecte-le puis actualise la page."}
+                valeur = trouve["valeur"]
+        elif typ == "nint":
             valeur = None if valeur in (None, "", "defaut", "null") else int(valeur)
         elif typ == "int":
+            if float(valeur) != int(float(valeur)):
+                return {"ok": False, "message": "Un nombre entier est attendu."}
             valeur = int(valeur)
         elif typ == "float":
             valeur = float(valeur)
-        else:
+        elif typ != "bool":
             valeur = str(valeur)
+        limites = {"assistant.duree_suite": (0, 30), "assistant.seuil_reveil": (0.1, 0.95),
+                   "assistant.stabilite_reveil": (1, 12), "assistant.silence_fin": (0.6, 3),
+                   "assistant.attente_debut": (1, 10), "assistant.attente_confirmation": (2, 20)}
+        if cle in limites:
+            bas, haut = limites[cle]
+            if not math.isfinite(valeur) or not bas <= valeur <= haut:
+                return {"ok": False, "message": f"Choisis une valeur entre {bas} et {haut}."}
+        if cle == "assistant.personnalite" and valeur not in {"neutre", "concis", "jarvis_sarcastique"}:
+            return {"ok": False, "message": "Personnalité inconnue."}
+        if cle == "tts.profil" or (cle == "tts.moteur" and valeur == "chatterbox"):
+            from core.chatterbox_tts import ChatterboxProvider
+            candidat = ChatterboxProvider(profil=valeur if cle == "tts.profil" else None)
+            try:
+                candidat.verifier()
+            except (ValueError, TypeError, OSError) as exc:
+                return {"ok": False, "message": str(exc)}
+            finally:
+                candidat.fermer()
+        if cle == "tts.voix_locale":
+            from core.voix_locales import PROFILS, installee
+            if valeur not in PROFILS or not installee(valeur):
+                return {"ok": False, "message": "Voix locale inconnue ou non installée."}
+            definir("piper.modele", PROFILS[valeur]["modele"])
+            definir("tts.moteur", "piper")
         if cle == "mode":
             from core.routage import definir_mode
             if not definir_mode(str(valeur), raison="panneau"):
                 return {"ok": False, "message": "Mode invalide."}
             return {"ok": True, "message": f"Mode {valeur} actif immediatement."}
         if cle == "tts.moteur" and valeur not in {
-                "auto", "elevenlabs", "piper", "kokoro", "windows"}:
+                "auto", "elevenlabs", "piper", "chatterbox", "kokoro", "windows"}:
             return {"ok": False, "message": "Moteur vocal invalide."}
         definir(cle, valeur)
+        if cle == "audio.micro":
+            definir("audio.taux", None)
         if cle.startswith("tts.") or cle.startswith("elevenlabs."):
             from core import tts
             tts.reinitialiser()
             return {"ok": True, "message": "Voix activee pour la prochaine reponse."}
-        return {"ok": True, "message": "Enregistre. Redemarre Jarvis pour l'appliquer."}
+        if cle in {"assistant.duree_suite", "assistant.silence_fin", "assistant.attente_debut",
+                   "assistant.attente_confirmation", "assistant.confirmer_veille", "assistant.accuse_reception"}:
+            return {"ok": True, "message": "Enregistré. Appliqué dès la prochaine écoute."}
+        return {"ok": True, "redemarrage": True, "message": "Enregistré. Redémarre Red pour appliquer ce réglage."}
     except Exception as e:
         return {"ok": False, "message": str(e)[:120]}
 
@@ -591,9 +664,9 @@ def _etat():
         except Exception:
             tunnel = ""
     chaine = [
-        {"cle": "jarvis", "nom": "Serveur Jarvis (web unifie)",
+        {"cle": "jarvis", "nom": "Serveur Red (web unifie)",
          "up": _port_listen(int(reglage("serveur.port", 8790))), "detail": "pont iPhone / Twilio"},
-        {"cle": "mcp", "nom": "Serveur MCP Jarvis :8765",
+        {"cle": "mcp", "nom": "Serveur MCP Red :8765",
          "up": _port_listen(8765) and _mcp_repond(), "detail": "outils domotique/PC (loopback)"},
         {"cle": "tunnel", "nom": "Tunnel ngrok", "up": bool(tunnel),
          "detail": tunnel or "aucune URL publique"},
@@ -603,7 +676,7 @@ def _etat():
          "detail": "backend d'execution Hermes"},
     ]
     connecte = _hermes_mcp_connecte()
-    chaine.append({"cle": "mcp_connexion", "nom": "Connexion MCP Hermes -> Jarvis",
+    chaine.append({"cle": "mcp_connexion", "nom": "Connexion MCP Hermes -> Red",
                    "up": bool(connecte), "inconnu": connecte is None,
                    "detail": "hermes mcp list" if connecte is not None else "hermes CLI indisponible"})
     return {"chaine": chaine}
@@ -737,7 +810,7 @@ def _reconnecter_mcp():
         p = subprocess.run([exe, "mcp", "add", "jarvis", "--url", url],
                            input="n\ny\n", capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=40)
         ok = p.returncode == 0
-        return {"ok": ok, "message": "jarvis reconnecte." if ok
+        return {"ok": ok, "message": "Red reconnecté." if ok
                 else (p.stderr or p.stdout or "echec").strip()[:200]}
     except Exception as e:
         return {"ok": False, "message": str(e)[:200]}
@@ -825,6 +898,9 @@ def monter_routes(app):
                                     status_code=415)
         return None
 
+    from core.memoire_api import monter_routes as monter_memoire
+    monter_memoire(app, garde)
+
     @app.get("/panneau")
     def panneau(request: Request):
         refus = garde(request)
@@ -867,10 +943,52 @@ def monter_routes(app):
     def api_reglages(request: Request):
         return garde(request) or _reglages()
 
+    @app.get("/api/panneau/fonctionnalites")
+    def api_fonctions(request: Request):
+        refus = garde(request)
+        if refus:
+            return refus
+        from core.fonctionnalites import catalogue
+        return catalogue()
+
+    @app.post("/api/panneau/voix/apercu")
+    async def api_apercu(request: Request):
+        refus = garde(request)
+        if refus:
+            return refus
+        from core.voix_locales import PROFILS, installee
+        try:
+            donnees = await request.json()
+            identifiant = donnees.get("id", "") if isinstance(donnees, dict) else ""
+            if not isinstance(identifiant, str) or identifiant not in PROFILS or not installee(identifiant):
+                return JSONResponse({"ok": False, "message": "Voix locale indisponible."}, status_code=400)
+            # La préécoute ne modifie ni la voix active ni le microphone de Red.
+            from core.tts import PiperProvider
+            from starlette.concurrency import run_in_threadpool
+            resultat = await run_in_threadpool(
+                PiperProvider(profil=identifiant).synthetiser,
+                "Bonjour. Je suis votre assistant Red. Je suis à votre écoute.")
+            if resultat is None:
+                return JSONResponse({"ok": False, "message": "La synthèse a échoué."}, status_code=503)
+            import io
+            import wave
+            from fastapi.responses import Response
+            audio, taux = resultat
+            tampon = io.BytesIO()
+            with wave.open(tampon, "wb") as wav:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(taux)
+                wav.writeframes(audio.astype("<i2").tobytes())
+            return Response(tampon.getvalue(), media_type="audio/wav")
+        except (ValueError, TypeError):
+            return JSONResponse({"ok": False, "message": "Demande invalide."}, status_code=400)
+
     # -- ecriture (sans danger : modeles + reconnexion) --
     async def _corps(request):
         try:
-            return await request.json()
+            donnees = await request.json()
+            return donnees if isinstance(donnees, dict) else {}
         except Exception:
             return {}
 
@@ -935,7 +1053,7 @@ def monter_routes(app):
             from core import voix
             threading.Thread(
                 target=voix.parler,
-                args=("Test de la voix Jarvis. La voix selectionnee est active.",),
+                args=("Test de la voix Red. La voix selectionnee est active.",),
                 daemon=True, name="test-voix").start()
             return {"ok": True, "message": "Test vocal lance."}
         except Exception as e:

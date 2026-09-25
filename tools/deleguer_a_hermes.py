@@ -129,7 +129,7 @@ def _charger_taches():
             if t.get("statut") == "en_cours":
                 t.update(statut="echouee", fin=maintenant,
                          duree=round(maintenant - float(t.get("debut") or maintenant), 1),
-                         resume="Interrompue par un redemarrage de Jarvis.")
+                         resume="Interrompue par un redemarrage de Red.")
                 modifie = True
         recentes = taches[-_MAX_TACHES:]
         if modifie or len(recentes) != len(taches):
@@ -451,7 +451,7 @@ def deleguer_en_fond(tache: str, intro: str = "Hermes a termine. ",
         "l'utilisateur dit 'delegue a Hermes', "
         "'fais une recherche de fond', 'lance Hermes sur...'. Plusieurs delegations "
         "peuvent tourner EN PARALLELE : donne un `session` court et parlant (ex. "
-        "'veille-ia', 'analyse-budget') pour les suivre separement. Jarvis annonce "
+        "'veille-ia', 'analyse-budget') pour les suivre separement. Red annonce "
         "« je confie ca a Hermes » et previent vocalement quand c'est pret. NE PAS "
         "utiliser pour une question simple/reflexe a laquelle tu peux repondre direct."
     ),

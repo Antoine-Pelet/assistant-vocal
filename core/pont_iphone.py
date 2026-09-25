@@ -67,15 +67,22 @@ def _outils_distants(local_seulement=False):
 
 
 def traiter_commande(phrase):
+    from core.contexte import ExecutionContext, use
+    with use(ExecutionContext(user_id="anonymous", device_id=None, source="iphone")):
+        return _traiter_commande(phrase)
+
+
+def _traiter_commande(phrase):
     """Execute une commande a distance, mais UNIQUEMENT via les outils surs
     (mcp_expose=True et sans confirmation). Renvoie {ok, reponse, faits}."""
     from core.llm import llm
     from core import registre
     P = llm()
     if not P.disponible():
-        return {"ok": False, "reponse": "Le modele de Jarvis n'est pas disponible."}
-    systeme = ("Tu es Jarvis, pilote a distance. Execute la commande de l'utilisateur "
-               "via les outils. Reponds en UNE phrase tres courte, en francais.")
+        return {"ok": False, "reponse": "Le modele de Red n'est pas disponible."}
+    systeme = ("Tu es Red, pilote a distance. Execute la commande de l'utilisateur "
+               "via les outils. Reponds en UNE phrase tres courte, en francais. "
+               "Lorsque tu attends une réponse, pose une seule question courte, sans énumérer les réponses possibles ni expliquer comment répondre, sauf demande explicite de l'utilisateur. ")
     messages = [{"role": "user", "content": phrase}]
     faits = []
     for _ in range(4):

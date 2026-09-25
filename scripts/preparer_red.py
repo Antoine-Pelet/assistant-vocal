@@ -37,9 +37,12 @@ def modeles():
                 if not (destination / membre).resolve().is_relative_to(destination):
                     raise ValueError("Chemin invalide dans le modèle Vosk")
             z.extractall(destination)
-    base = "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/medium/"
-    for nom in ("fr_FR-siwis-medium.onnx", "fr_FR-siwis-medium.onnx.json"):
-        telecharger(base + nom, RACINE / "voix" / nom)
+    for voix in ("siwis", "tom"):
+        base = f"https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/{voix}/medium/"
+        for suffixe in (".onnx", ".onnx.json"):
+            nom = f"fr_FR-{voix}-medium{suffixe}"
+            telecharger(base + nom, RACINE / "voix" / nom)
+        telecharger(base + "MODEL_CARD", RACINE / "voix" / f"fr_FR-{voix}-medium.MODEL_CARD")
     from huggingface_hub import snapshot_download
     print("Préparation de Whisper base (transcription française locale)...", flush=True)
     snapshot_download("Systran/faster-whisper-base", local_dir=RACINE / "models/whisper-base",
@@ -61,6 +64,7 @@ def configurer():
         "ollama.num_ctx": 4096, "ollama.num_predict": 256, "ollama.think": False,
         "whisper.modele": "models/whisper-base", "whisper.device": "cpu",
         "tts.moteur": "piper", "piper.modele": "voix/fr_FR-siwis-medium.onnx",
+        "serveur.actif": True,
         "scenes.au_demarrage_actif": False, "scenes.spotify": False,
     }
     for chemin, valeur in valeurs.items():
@@ -69,6 +73,9 @@ def configurer():
         for cle in cles[:-1]:
             noeud = noeud.setdefault(cle, {})
         noeud[cles[-1]] = valeur
+    profil = conf.setdefault("tts", {}).setdefault("voix_locale", "siwis_fr")
+    if profil in ("tom_fr", "jarvis_fr"):
+        conf.setdefault("piper", {})["modele"] = "voix/fr_FR-tom-medium.onnx"
     for fournisseur in ("openai", "anthropic"):
         if conf.get(fournisseur, {}).get("cle") in ("sk-proj-...", "sk-ant-..."):
             conf[fournisseur]["cle"] = ""

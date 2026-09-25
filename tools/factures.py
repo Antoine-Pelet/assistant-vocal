@@ -38,13 +38,12 @@ def factures_statut() -> str:
     if not url:
         return ("Je ne sais pas où est ton tableau de bord facture.net. Renseigne "
                 "factures.url dans config.yaml (l'URL de ta page, une fois connecté "
-                "dans le profil Chrome « ChromeJarvis »).")
+                "dans le profil Chrome dédié à Red).")
 
     from tools.navigateur import _connexion, _contexte
     browser = _connexion()
     if browser is None:
-        return ("Chrome n'est pas joignable. Lance « Chrome + Jarvis » (profil "
-                "ChromeJarvis) puis redemande-moi.")
+        return ("Chrome n'est pas joignable. Lance « Chrome + Red » puis redemande-moi.")
 
     page = None
     try:
@@ -67,7 +66,7 @@ def factures_statut() -> str:
     if any(x in url_finale for x in ("login", "connexion", "signin", "sign-in")) or \
             (len(texte) < 500 and any(m in bas for m in _INDICES_LOGIN)):
         return ("Ta session facture.net a expiré. Reconnecte-toi UNE fois dans le "
-                "profil Chrome « ChromeJarvis » (lance « Chrome + Jarvis »), puis "
+                "profil Chrome dédié à Red (lance « Chrome + Red »), puis "
                 "redemande-moi le statut de tes factures.")
     if len(texte) < 40:
         return "Le tableau de bord facture.net semble vide ou n'a pas chargé — réessaie."

@@ -1,5 +1,5 @@
 @echo off
-title Serveur MCP Jarvis
+title Serveur MCP Red
 rem Lance le serveur MCP de Jarvis en mode HTTP (serveur autonome : les clients
 rem MCP distants s'y connectent). Pour Claude Desktop en local, pas besoin de ce
 rem raccourci : Claude Desktop lance le serveur lui-meme (stdio). Voir docs/mcp.md.

@@ -325,7 +325,7 @@ def _twiml_stream(objectif, contraintes):
 @outil(
     nom="call_and_book",
     description="Appelle un numero et MENE UNE VRAIE CONVERSATION pour atteindre un "
-                "objectif (ex. reserver une table, prendre un rdv). Jarvis se presente, "
+                "objectif (ex. reserver une table, prendre un rdv). Red se presente, "
                 "expose la demande, comprend les reponses et negocie dans les limites "
                 "donnees. Pour 'appelle le resto et reserve une table pour 2 vendredi "
                 "20h'. Confirmation requise. Necessite un serveur public (voir docs).",

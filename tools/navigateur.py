@@ -33,7 +33,7 @@ _BROWSER = None   # navigateur Chrome connecte via CDP
 
 _MSG_ABSENT = ("Je n'ai pas reussi a lancer Chrome connecte. Verifie que Google "
                "Chrome est installe (ou renseigne navigateur.chrome_exe dans "
-               "config.yaml), ou lance le raccourci \"Chrome + Jarvis\".")
+               "config.yaml), ou lance le raccourci \"Chrome + Red\".")
 
 # Les noms usuels sont normalises ici, pas laisses au jugement du LLM. Cela rend
 # « ouvre Netflix » aussi fiable avec un petit modele local qu'avec le cloud.

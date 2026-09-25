@@ -5,6 +5,7 @@ ou None. jarvis14 se charge de JOUER l'audio (avec sa gestion d'interruption) et
 retombe sur la voix Windows (SAPI) si le provider renvoie None.
 
   - ElevenLabsProvider : cloud (qualite max), voix configurable.
+  - ChatterboxProvider : local, français, référence WAV et profils personnalisés.
   - PiperProvider      : local, 100% offline, voix francaise Piper (.onnx).
 
 Choix par config.yaml (`tts.moteur`) et par le mode local/hybride/qualite. En
@@ -120,9 +121,17 @@ class ElevenLabsProvider(ProviderTTS):
 class PiperProvider(ProviderTTS):
     nom = "Piper"
 
-    def __init__(self):
+    def __init__(self, profil=None):
         self.modele = reglage("piper.modele", "")
+        from core.voix_locales import PROFILS, selection
+        self.profil = selection() if profil is None else profil
+        if self.profil:
+            self.modele = PROFILS[self.profil]["modele"]
         self._voix = None
+
+    def _sortie(self, audio, frequence):
+        from core.voix_locales import appliquer_effet
+        return appliquer_effet(audio, frequence, self.profil)
 
     def _chemin(self):
         if not self.modele:
@@ -154,7 +163,7 @@ class PiperProvider(ProviderTTS):
             # Ancienne API (piper-tts <= 1.2.x) : synthesize_stream_raw() -> PCM brut.
             if hasattr(self._voix, "synthesize_stream_raw"):
                 brut = b"".join(self._voix.synthesize_stream_raw(texte))
-                return np.frombuffer(brut, dtype=np.int16), self._voix.config.sample_rate
+                return self._sortie(np.frombuffer(brut, dtype=np.int16), self._voix.config.sample_rate)
 
             # Nouvelle API (piper-tts >= 1.3.0, réécriture OHF-Voice/piper1-gpl) :
             # synthesize() renvoie des AudioChunk (int16 + sample_rate). C'est le
@@ -175,7 +184,7 @@ class PiperProvider(ProviderTTS):
                 return None
             if not freq:
                 freq = getattr(getattr(self._voix, "config", None), "sample_rate", 22050)
-            return np.frombuffer(brut, dtype=np.int16), freq
+            return self._sortie(np.frombuffer(brut, dtype=np.int16), freq)
         except Exception as e:
             print(f"  [Piper] echec ({e}), repli voix Windows.")
             return None
@@ -224,7 +233,7 @@ _TTS = None
 def tts():
     """Provider TTS courant.
 
-    ``tts.moteur`` peut valoir auto/elevenlabs/piper/kokoro/windows. Le mode
+    ``tts.moteur`` peut valoir auto/elevenlabs/piper/chatterbox/kokoro/windows. Le mode
     local garde sa promesse de confidentialite : ElevenLabs y est ignore et un
     moteur local est choisi.
     """
@@ -241,6 +250,9 @@ def tts():
                 moteur = "elevenlabs"
         if moteur == "elevenlabs":
             _TTS = ElevenLabsProvider()
+        elif moteur == "chatterbox":
+            from core.chatterbox_tts import ChatterboxProvider
+            _TTS = ChatterboxProvider()
         elif moteur == "kokoro":
             _TTS = KokoroProvider()
         elif moteur == "piper":
@@ -254,4 +266,7 @@ def tts():
 def reinitialiser():
     """Force la reconstruction du provider TTS au prochain tts() (switch de mode)."""
     global _TTS
-    _TTS = None
+    ancien, _TTS = _TTS, None
+    fermer = getattr(ancien, "fermer", None)
+    if fermer:
+        fermer()

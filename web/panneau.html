@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jarvis — Panneau</title>
+<title>Red — Panneau</title>
 <style>
   :root{
     --bg:#0f1115; --card:#171a21; --card2:#1d222b; --bord:#2a2f3a;
@@ -51,7 +51,7 @@
   .fld:last-child{border-bottom:none}
   .fld .lab{min-width:210px} .fld .lab b{font-weight:600}
   .fld .lab small{display:block;color:var(--dim);font-size:12px}
-  .seg{display:inline-flex;border:1px solid var(--bord);border-radius:8px;overflow:hidden}
+  .seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--bord);border-radius:8px;overflow:hidden}
   .seg button{background:var(--card2);border:none;color:var(--dim);padding:7px 14px;cursor:pointer;font-size:13px}
   .seg button.on{background:var(--acc);color:#fff}
   .rngval{min-width:52px;text-align:right;font-family:ui-monospace,Consolas,monospace}
@@ -61,22 +61,32 @@
   .prog>i{display:block;height:100%;width:0;background:var(--acc)}
   small.note{color:var(--dim)}
   @media(max-width:640px){td .row{flex-direction:column;align-items:flex-start}}
+  .feature-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .feature-grid .card{margin:0}.feature-grid ul{padding-left:20px;color:var(--dim)}
+  nav{flex-wrap:wrap} [hidden]{display:none!important}
+  @media(max-width:700px){.feature-grid{grid-template-columns:1fr}header{flex-wrap:wrap}}
+  #memoire textarea.txt{background:var(--card2);border:1px solid var(--bord);color:var(--txt);border-radius:8px;padding:9px;font:inherit;min-width:240px;flex:1}
+  #memoire dialog{background:var(--card);color:var(--txt);border:1px solid var(--bord);border-radius:12px;max-width:660px;width:calc(100% - 32px);padding:24px;overflow-wrap:anywhere}
+  #memoire dialog::backdrop{background:#000b} #memoire .mem-texte{flex:1;min-width:180px;overflow-wrap:anywhere}
+  .mem-table{overflow-x:auto} #mem-message:empty{display:none}
 </style>
 </head>
 <body>
 <header>
-  <h1>Jarvis — Panneau de configuration</h1>
+  <h1>Red — Panneau de configuration</h1>
   <span class="pill local">local uniquement</span>
   <span id="hdr" class="muted" style="margin-left:auto;font-size:12px"></span>
 </header>
 <nav>
-  <button data-t="modeles" class="on">Modèles</button>
-  <button data-t="reglages">Réglages</button>
+  <button data-t="reglages" class="on">Réglages</button>
+  <button data-t="fonctions">Fonctionnalités</button>
+  <button data-t="modeles">Modèles</button>
   <button data-t="etat">État</button>
+  <button data-t="memoire">Mémoire</button>
   <button data-t="perms">Permissions</button>
 </nav>
 <main>
-  <section id="modeles" class="tab on">
+  <section id="modeles" class="tab">
     <div class="card"><h2>Matériel</h2><div id="mat" class="row"></div></div>
     <div class="card"><h2>Modèle actif par backend</h2><div id="actifs"></div></div>
     <div class="card"><h2>Modèles cloud OpenAI</h2>
@@ -98,9 +108,9 @@
     </div>
   </section>
 
-  <section id="reglages" class="tab">
+  <section id="reglages" class="tab on">
     <div class="card"><h2>Mode de routage</h2>
-      <div class="fld"><div class="lab"><b>Où réfléchit Jarvis</b>
+      <div class="fld"><div class="lab"><b>Où réfléchit Red</b>
         <small>Local = hors ligne. Hybride = profil quotidien du fournisseur choisi + Hermes pour le fond. Qualité = profil le plus puissant du même fournisseur.</small></div>
         <div class="seg" id="seg-mode">
           <button data-v="local">🖥️ Local</button>
@@ -114,21 +124,33 @@
     <div class="card"><h2>Audio</h2>
       <div class="fld"><div class="lab"><b>Microphone</b><small>Entrée utilisée pour t'écouter.</small></div>
         <select class="txt" id="sel-micro" onchange="setReglage('audio.micro',this.value,this)"></select></div>
-      <div class="fld"><div class="lab"><b>Haut-parleur</b><small>Sortie pour la voix de Jarvis.</small></div>
+      <div class="fld"><div class="lab"><b>Haut-parleur</b><small>Sortie pour la voix de Red.</small></div>
         <select class="txt" id="sel-hp" onchange="setReglage('audio.haut_parleur',this.value,this)"></select></div>
       <div id="audio-msg" class="msg"></div>
     </div>
 
-    <div class="card"><h2>Voix de Jarvis</h2>
+    <div class="card"><h2>Voix de Red</h2>
+      <div class="fld"><div class="lab"><b>Voix Piper</b><small>Français, hors ligne. Le choix s'applique à la prochaine réponse.</small></div>
+        <select class="txt" id="sel-voix-locale" aria-label="Voix locale" onchange="setReglage('tts.voix_locale',this.value,this)"></select>
+        <button class="act" id="ecouter-voix" onclick="apercuVoix()">Écouter</button>
+      </div>
+      <p class="muted" id="description-voix"></p>
+      <audio id="apercu-audio" controls hidden style="width:100%;max-width:480px"></audio>
+      <div id="apercu-msg" class="msg" role="status"></div>
       <div class="fld"><div class="lab"><b>Moteur vocal</b>
         <small>Auto choisit ElevenLabs en cloud et Piper en local. Le mode local reste intégralement local.</small></div>
         <div class="seg" id="seg-tts">
           <button data-v="auto">Auto</button>
           <button data-v="elevenlabs">ElevenLabs</button>
           <button data-v="piper">Piper</button>
+          <button data-v="chatterbox">Chatterbox</button>
           <button data-v="kokoro">Kokoro</button>
           <button data-v="windows">Windows</button>
         </div>
+      </div>
+      <div class="fld"><div class="lab"><b>Profil Chatterbox</b>
+        <small>Voix personnalisée locale. Ajoute le WAV dans voices/ et son profil dans config.yaml, puis choisis le moteur Chatterbox.</small></div>
+        <select class="txt" id="sel-chatterbox" aria-label="Profil Chatterbox" onchange="setReglage('tts.profil',this.value,this)"></select>
       </div>
       <div class="fld"><div class="lab"><b>Voix ElevenLabs</b>
         <small id="elevenlabs-etat">Vérification du compte…</small></div>
@@ -149,30 +171,68 @@
       <div class="fld"><div class="lab"><b>Personnalité</b><small>Le ton des réponses.</small></div>
         <select class="txt" id="sel-perso" onchange="setReglage('assistant.personnalite',this.value,this)"></select></div>
       <div class="fld"><div class="lab"><b>Durée d'écoute enchaînée</b>
-        <small>Secondes où Jarvis continue d'écouter après une réponse (sans redire le mot d'activation).</small></div>
+        <small>Secondes où Red continue d'écouter après une réponse (sans redire le mot d'activation).</small></div>
         <input type="range" id="rng-suite" min="0" max="30" step="1"
           oninput="$('#val-suite').textContent=this.value+' s'"
           onchange="setReglage('assistant.duree_suite',this.value,this)">
         <span class="rngval" id="val-suite">—</span></div>
+      <div class="fld"><div class="lab"><b>Confirmation avant la veille</b>
+        <small>Sans réponse, Red reste à l'écoute sans répéter la question.</small></div>
+        <select class="txt" id="sel-veille" aria-label="Confirmation avant la veille"
+          onchange="setReglage('assistant.confirmer_veille',this.value,this)">
+          <option value="true">Activée</option><option value="false">Désactivée</option></select></div>
+      <div class="fld"><div class="lab"><b>Accusé de réception</b>
+        <small>Un bref « Compris » pendant que la demande est traitée.</small></div>
+        <select class="txt" id="sel-accuse" aria-label="Accusé de réception"
+          onchange="setReglage('assistant.accuse_reception',this.value,this)">
+          <option value="true">Activé</option><option value="false">Désactivé</option></select></div>
+      <div class="fld"><div class="lab"><b>Pause avant la fin de phrase</b><small>Augmente si Red coupe tes phrases ; diminue pour une réponse plus rapide.</small></div>
+        <input type="range" id="rng-pause" aria-label="Pause avant la fin de phrase" min="0.6" max="3" step="0.1"
+          oninput="$('#val-pause').textContent=this.value+' s'"
+          onchange="setReglage('assistant.silence_fin',this.value,this)">
+        <span class="rngval" id="val-pause">—</span></div>
+      <div class="fld"><div class="lab"><b>Temps pour commencer à parler</b><small>Attente après le bip avant de considérer que tu n’as rien dit.</small></div>
+        <input type="range" id="rng-debut" aria-label="Temps pour commencer à parler" min="1" max="10" step="0.5"
+          oninput="$('#val-debut').textContent=this.value+' s'"
+          onchange="setReglage('assistant.attente_debut',this.value,this)">
+        <span class="rngval" id="val-debut">—</span></div>
+      <div class="fld"><div class="lab"><b>Temps pour répondre à une confirmation</b><small>Délai pour commencer ton oui, ton non ou une nouvelle demande.</small></div>
+        <input type="range" id="rng-confirmation" aria-label="Temps pour répondre à une confirmation" min="2" max="20" step="0.5"
+          oninput="$('#val-confirmation').textContent=this.value+' s'"
+          onchange="setReglage('assistant.attente_confirmation',this.value,this)">
+        <span class="rngval" id="val-confirmation">—</span></div>
       <div id="voix-msg" class="msg"></div>
     </div>
 
-    <div class="card"><h2>Mot d'activation</h2>
-      <div class="fld"><div class="lab"><b>Phrase</b><small>Modèle openWakeWord embarqué.</small></div>
-        <span class="badge on">« Hey Jarvis »</span></div>
-      <div class="fld"><div class="lab"><b>Sensibilité</b>
-        <small>Bas = se déclenche facilement (plus de faux positifs). Haut = strict.</small></div>
-        <input type="range" id="rng-seuil" min="0.30" max="0.80" step="0.05"
+    <div class="card"><h2>Activation et écoute</h2>
+      <div class="fld"><div class="lab"><b>Mot d'activation</b><small>Dis ce mot, puis attends le bip avant ta demande.</small></div>
+        <span class="badge on" id="mot-activation">red</span></div>
+      <div class="fld" id="stabilite-vosk"><div class="lab"><b>Stabilité de détection</b>
+        <small>Plus élevée : détection plus prudente, avec un léger délai supplémentaire.</small></div>
+        <input type="range" aria-label="Stabilité de détection" id="rng-stabilite" min="1" max="12" step="1"
+          oninput="$('#val-stabilite').textContent=this.value"
+          onchange="setReglage('assistant.stabilite_reveil',this.value,this)">
+        <span class="rngval" id="val-stabilite">—</span></div>
+      <div class="fld" id="seuil-openwake"><div class="lab"><b>Sensibilité openWakeWord</b><small>Un seuil plus haut exige une détection plus certaine.</small></div>
+        <input type="range" id="rng-seuil" min="0.1" max="0.95" step="0.05"
           oninput="$('#val-seuil').textContent=(+this.value).toFixed(2)"
           onchange="setReglage('assistant.seuil_reveil',this.value,this)">
         <span class="rngval" id="val-seuil">—</span></div>
-      <div id="wake-msg" class="msg"></div>
+      <div id="wake-msg" class="msg" role="status"></div>
+      <p class="muted">Essaie « red fonction » pour entendre ce que Red peut faire, ou « red panneau » pour ouvrir cette page.</p>
     </div>
-    <small class="note">Ces réglages s'écrivent dans <span class="mono">config.yaml</span> — <b>redémarre Jarvis</b> pour les appliquer.</small>
+    <small class="note">La voix, les délais de conversation et le modèle de réponses changent sans redémarrage. Pour le microphone, la personnalité et la stabilité de détection, <b>redémarre Red</b> après enregistrement.</small>
   </section>
 
+  <section id="fonctions" class="tab">
+    <div class="card"><h2>Ce que Red peut faire maintenant</h2>
+      <p class="muted">Cette liste dépend des outils chargés et de ta configuration. Les services externes peuvent demander une connexion supplémentaire.</p>
+      <div class="row"><span id="fonctions-total" class="badge on"></span><button class="act ghost" onclick="chargerFonctions()">Actualiser</button></div>
+    </div>
+    <div class="feature-grid" id="liste-fonctions" aria-live="polite"></div>
+  </section>
   <section id="etat" class="tab">
-    <div class="card"><h2>Chaîne Jarvis ↔ Hermes</h2>
+    <div class="card"><h2>Chaîne Red ↔ Hermes</h2>
       <div id="chaine"></div>
       <div style="margin-top:12px" class="row">
         <button class="act ghost" onclick="chargerEtat()">Rafraîchir</button>
@@ -182,7 +242,7 @@
     </div>
     <div class="card"><h2>Budget par fournisseur</h2>
       <div id="budget"></div>
-      <small class="note">Jarvis : mesuré (tokens + coût estimé, tarifs config <span class="mono">budget.prix</span>). Hermes : tokens via <span class="mono">hermes insights</span>.</small>
+      <small class="note">Red : mesuré (tokens + coût estimé, tarifs config <span class="mono">budget.prix</span>). Hermes : tokens via <span class="mono">hermes insights</span>.</small>
     </div>
     <div class="card"><h2>File de tâches Hermes <span id="taches-kpi" class="muted" style="font-size:12px;font-weight:400"></span></h2>
       <div id="taches" class="muted">Chargement…</div>
@@ -207,11 +267,72 @@
       <table><thead><tr><th>Outil</th><th>Niveau</th><th>Exposé MCP</th><th>Confirmation</th><th>Rôle</th></tr></thead>
       <tbody id="outils"></tbody></table></div>
   </section>
+  <section id="memoire" class="tab">
+    <div class="card">
+      <h2>Mémoire de Red</h2>
+      <p class="muted">Les souvenirs restent sans limite de durée après un redémarrage, sauf suppression programmée explicitement. Chaque ajout, modification ou suppression attend ton accord.</p>
+      <div class="row"><button class="act" id="mem-ajouter">Ajouter un souvenir</button><button class="act ghost" id="mem-zone-creer">Créer une zone</button><button class="act ghost" id="mem-actualiser">Actualiser</button></div>
+      <p id="mem-message" role="status" aria-live="polite"></p>
+    </div>
+    <div id="mem-zones"></div>
+    <form id="mem-entree" class="card" hidden>
+      <h2 id="mem-entree-titre">Ajouter un souvenir</h2>
+      <div class="fld"><label for="mem-zone" class="lab">Zone</label><select class="txt" id="mem-zone"></select></div>
+      <div class="fld"><label for="mem-categorie" class="lab">Catégorie</label><select class="txt" id="mem-categorie"><option value="facts">Fait</option><option value="preferences">Préférence</option><option value="people">Personne</option><option value="projects">Projet</option></select></div>
+      <div class="fld"><label for="mem-cle" class="lab">Étiquette</label><input class="txt" id="mem-cle" maxlength="100" placeholder="Ex. : boisson préférée"></div>
+      <div class="fld"><label for="mem-contenu" class="lab">Souvenir</label><textarea class="txt" id="mem-contenu" rows="3" maxlength="4000" required></textarea></div>
+      <div class="fld"><label class="lab" for="mem-expiration">Supprimer ce souvenir le<small>Facultatif : vide = conservation illimitée.</small></label><input class="txt" id="mem-expiration" type="datetime-local" step="1"></div>
+      <div class="row"><button class="act" type="submit">Vérifier le changement</button><button class="act ghost" type="button" id="mem-fermer-entree">Annuler</button></div>
+    </form>
+    <form id="mem-regles" class="card" hidden>
+      <h2 id="mem-regles-titre">Créer une zone</h2>
+      <div class="fld"><label class="lab" for="mem-nom">Nom</label><input class="txt" id="mem-nom" maxlength="80" required></div>
+      <div class="fld"><label class="lab" for="mem-debut">Accessible à partir de</label><input class="txt" id="mem-debut" type="datetime-local" step="1"></div>
+      <div class="fld"><label class="lab" for="mem-fin">Accessible jusqu’à</label><input class="txt" id="mem-fin" type="datetime-local" step="1"></div>
+      <p class="muted">Dates dans le fuseau de ce PC. Un champ vide ne fixe aucune limite. Si un mot de passe et des dates sont définis, toutes les conditions doivent être remplies.</p>
+      <div class="fld"><label class="lab" for="mem-pass-action">Mot de passe</label><select class="txt" id="mem-pass-action"><option value="garder">Conserver l’état actuel</option><option value="definir">Définir ou remplacer</option></select></div>
+      <div class="fld" id="mem-pass-ligne" hidden><label class="lab" for="mem-pass">Nouveau mot de passe</label><input class="txt" id="mem-pass" type="password" minlength="8" maxlength="1024" autocomplete="new-password"></div>
+      <div class="fld" id="mem-pass-old-ligne" hidden><label class="lab" for="mem-pass-old">Mot de passe actuel</label><input class="txt" id="mem-pass-old" type="password" maxlength="1024" autocomplete="current-password"></div>
+      <div class="fld" id="mem-pass2-ligne" hidden><label class="lab" for="mem-pass2">Répéter le nouveau mot de passe</label><input class="txt" id="mem-pass2" type="password" maxlength="1024" autocomplete="new-password"></div>
+      <p class="muted">Les zones avec mot de passe sont chiffrées sur ce PC. Red ne peut pas récupérer un mot de passe oublié.</p>
+      <div class="row"><button class="act" type="submit">Vérifier les conditions</button><button class="act ghost" type="button" id="mem-fermer-regles">Annuler</button></div>
+    </form>
+    <div class="card"><h2>Historique des changements · sept jours</h2>
+      <p class="muted">Lecture seule. Chaque événement expire exactement 168 heures après sa création. Les valeurs des souvenirs et les mots de passe ne sont pas recopiés ici.</p>
+      <p id="mem-historique-etat" class="muted"></p>
+      <div class="row"><button class="act" id="mem-historique-acces">Accéder à l’historique</button><button class="act ghost" id="mem-historique-verrouiller" hidden>Verrouiller l’historique</button><button class="act ghost" id="mem-historique-password" hidden>Changer son mot de passe</button></div>
+      <div class="mem-table"><table><thead><tr><th>Date</th><th>Changement</th><th>Zone</th><th>Expiration</th></tr></thead><tbody id="mem-historique"></tbody></table></div>
+      <p class="muted">Si Red est arrêté à l’échéance, la purge se fait au prochain lancement, avant toute consultation.</p>
+    </div>
+    <dialog id="mem-journal-dialog" aria-labelledby="mem-journal-titre">
+      <form id="mem-journal-form"><h2 id="mem-journal-titre">Protéger l’historique</h2>
+        <p>Aucune récupération de mot de passe n’est possible. Sans ce mot de passe, le contenu de l’historique sera perdu.</p>
+        <div id="mem-journal-old-ligne" class="fld" hidden><label for="mem-journal-old">Mot de passe actuel</label><input class="txt" type="password" id="mem-journal-old" maxlength="1024" autocomplete="current-password"></div>
+        <div class="fld"><label for="mem-journal-new">Nouveau mot de passe</label><input class="txt" type="password" id="mem-journal-new" minlength="8" maxlength="1024" autocomplete="new-password" required></div>
+        <div class="fld"><label for="mem-journal-repeat">Répéter le mot de passe</label><input class="txt" type="password" id="mem-journal-repeat" maxlength="1024" autocomplete="new-password" required></div>
+        <p id="mem-journal-message" role="status"></p><div class="row"><button class="act" type="submit">Vérifier la protection</button><button class="act ghost" type="button" id="mem-journal-fermer">Annuler</button></div>
+      </form>
+    </dialog>
+    <p class="muted">À la voix : « Red, déverrouille la zone Personnel », « Red, ouvre l’historique », « Red, lis la zone Personnel ». Red demande le mot de passe séparément ; il ne l’affiche pas et ne le transmet pas au modèle.</p>
+    <dialog id="mem-validation" aria-labelledby="mem-validation-titre">
+      <h2 id="mem-validation-titre">Confirmer le changement</h2><p id="mem-resume"></p><div id="mem-detail"></div>
+      <p class="muted">Cette validation ne vaut que pour ce changement. Elle expire après cinq minutes.</p>
+      <div class="row"><button class="act" id="mem-confirmer">Confirmer</button><button class="act ghost" id="mem-annuler">Annuler</button></div>
+    </dialog>
+    <dialog id="mem-acces" aria-labelledby="mem-acces-titre">
+      <form id="mem-deverrouiller"><h2 id="mem-acces-titre">Déverrouiller la zone</h2>
+        <label for="mem-secret">Mot de passe</label><input class="txt" id="mem-secret" type="password" maxlength="1024" autocomplete="current-password" required>
+        <p id="mem-acces-message" role="status"></p><div class="row"><button class="act" type="submit">Déverrouiller</button><button class="act ghost" type="button" id="mem-acces-annuler">Fermer</button></div>
+      </form>
+    </dialog>
+  </section>
+
 </main>
 
 <script>
 const $=(s,e=document)=>e.querySelector(s), $$=(s,e=document)=>[...e.querySelectorAll(s)];
-const api=async(u,o)=>{const r=await fetch(u,o);try{return await r.json()}catch(e){return{ok:false,message:'reponse invalide'}}};
+const api=async(u,o)=>{try{const r=await fetch(u,o);return await r.json()}catch(e){return{ok:false,message:'Red est injoignable. Relance lancer_red.bat puis actualise cette page.'}}};
+const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const post=(u,b)=>api(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});
 const bYes=(t)=>`<span class="badge on">${t}</span>`, bNo=(t)=>`<span class="badge off">${t}</span>`;
 
@@ -220,6 +341,9 @@ $$('nav button').forEach(b=>b.onclick=()=>{
   $$('.tab').forEach(t=>t.classList.toggle('on',t.id===b.dataset.t));
   if(b.dataset.t==='etat'){chargerEtat();chargerBudget();chargerActivite();chargerTaches();} if(b.dataset.t==='perms')chargerPerms();
   if(b.dataset.t==='reglages')chargerReglages();
+  if(b.dataset.t==='fonctions')chargerFonctions();
+  if(b.dataset.t==='modeles')chargerModeles();
+  if(b.dataset.t==='memoire')chargerMemoire();
 });
 const fmt=n=>(n||0).toLocaleString('fr-FR');
 const eur=n=>'$'+(n||0).toFixed(2);
@@ -354,7 +478,7 @@ async function reconnecter(){
 async function chargerBudget(){
   const d=await api('/api/panneau/budget');
   const lignes=(obj,periode)=>Object.entries(obj||{}).map(([f,v])=>
-    `<tr><td>${f}</td><td class="muted">${periode}</td><td class="mono">${fmt(v.tin)}→${fmt(v.tout)}</td>
+    `<tr><td>${esc(f.replace(/\bJarvis\b/gi,'Red'))}</td><td class="muted">${periode}</td><td class="mono">${fmt(v.tin)}→${fmt(v.tout)}</td>
      <td>${v.appels} appels</td><td><b>${eur(v.cout)}</b></td></tr>`).join('');
   let html='<table><thead><tr><th>Fournisseur</th><th>Période</th><th>Tokens (in→out)</th><th></th><th>Coût est.</th></tr></thead><tbody>';
   html+=lignes(d.jarvis.jour,'aujourd’hui')||'';
@@ -363,7 +487,7 @@ async function chargerBudget(){
   html+='<tr id="budget-hermes"><td>Hermes</td><td class="muted">—</td><td class="mono">…</td><td></td><td>—</td></tr>';
   html+='</tbody></table>';
   if(!Object.keys(d.jarvis.jour||{}).length && !Object.keys(d.jarvis.mois||{}).length && !d.twilio)
-    html='<span class="muted">Aucune conso enregistrée pour l’instant (redémarre Jarvis pour activer le comptage).</span>'+html;
+    html='<span class="muted">Aucune conso enregistrée pour l’instant (redémarre Red pour activer le comptage).</span>'+html;
   $('#budget').innerHTML=html;
 }
 async function chargerTaches(){
@@ -406,9 +530,10 @@ async function chargerActivite(){
 }
 
 /* ---------- REGLAGES ---------- */
-const PERSO_LABEL={jarvis_sarcastique:'Jarvis (sarcastique)',neutre:'Neutre',concis:'Concis'};
+const PERSO_LABEL={jarvis_sarcastique:'Red (sarcastique)',neutre:'Neutre',concis:'Concis'};
 async function chargerReglages(){
   const d=await api('/api/panneau/reglages');
+  if(d.ok===false){$('#audio-msg').textContent=d.message;return;}
   // mode
   const mode=d.mode==='cloud'?'hybride':d.mode;
   $$('#seg-mode button').forEach(x=>{
@@ -416,17 +541,30 @@ async function chargerReglages(){
     x.onclick=()=>setReglage('mode',x.dataset.v,x.closest('.card').querySelector('.msg')||x);
   });
   // micro / haut-parleur
-  const opt=(v,t,sel)=>`<option value="${v}" ${sel?'selected':''}>${t.replace(/</g,'&lt;')}</option>`;
-  $('#sel-micro').innerHTML=(d.entrees||[]).map(e=>opt(e.index,`#${e.index} · ${e.nom}`,e.index===d.micro)).join('')
-    || opt(d.micro,`micro #${d.micro}`,true);
-  const hpNul = d.haut_parleur===null||d.haut_parleur===undefined;
-  $('#sel-hp').innerHTML=opt('defaut','Sortie par défaut de Windows',hpNul)
-    +(d.sorties||[]).map(s=>opt(s.index,`#${s.index} · ${s.nom}`,!hpNul&&s.index===d.haut_parleur)).join('');
+  const opt=(v,t,sel)=>`<option value="${esc(v)}" ${sel?'selected':''}>${esc(t)}</option>`;
+  function remplirAudio(id, liste, valeur){
+    let html=opt('defaut','Périphérique par défaut de Windows',valeur==null);
+    const reconnu=(liste||[]).some(e=>e.valeur===valeur||e.index===valeur);
+    if(valeur!=null&&!reconnu)html+=opt(valeur,`${valeur} (déconnecté)`,true);
+    html+=(liste||[]).map(e=>opt(e.valeur,`${e.nom} · ${e.interface}`,e.valeur===valeur||e.index===valeur)).join('');
+    $(id).innerHTML=html;
+  }
+  remplirAudio('#sel-micro',d.entrees,d.micro);
+  remplirAudio('#sel-hp',d.sorties,d.haut_parleur);
+  $('#sel-voix-locale').innerHTML=(d.voix_locales||[]).map(v=>
+    `<option value="${esc(v.id)}" ${v.id===d.voix_locale?'selected':''} ${v.installee?'':'disabled'}>${esc(v.nom)}${v.installee?'':' (non installée)'}</option>`).join('');
+  if(!d.voix_locale)$('#sel-voix-locale').insertAdjacentHTML('afterbegin',opt('','Voix personnalisée actuelle',true));
+  $('#description-voix').textContent=(d.voix_locales||[]).find(v=>v.id===d.voix_locale)?.description||'';
+  $('#mot-activation').textContent=d.mot_activation||'red';
+  $('#rng-stabilite').value=d.stabilite_reveil;$('#val-stabilite').textContent=d.stabilite_reveil;
+  $('#stabilite-vosk').hidden=d.moteur_reveil!=='vosk';
+  $('#seuil-openwake').hidden=d.moteur_reveil==='vosk';
   // moteur vocal + voix ElevenLabs
   $$('#seg-tts button').forEach(x=>{
     x.classList.toggle('on',x.dataset.v===(d.tts_moteur||'auto'));
     x.onclick=()=>setReglage('tts.moteur',x.dataset.v,x);
   });
+  $('#sel-chatterbox').innerHTML=(d.chatterbox_profils||[]).map(p=>opt(p,p==='jarvis'?'Red':p,p===d.chatterbox_profil)).join('')||opt('','Aucun profil configuré',true);
   const el=d.elevenlabs||{};
   $('#elevenlabs-etat').innerHTML=!el.configure
     ? '<span style="color:var(--ko)">Clé absente dans config.yaml.</span>'
@@ -439,25 +577,50 @@ async function chargerReglages(){
   // personnalite
   $('#sel-perso').innerHTML=(d.personnalites||[]).map(p=>opt(p,PERSO_LABEL[p]||p,p===d.personnalite)).join('');
   // sliders
+  $('#sel-veille').value=String(d.confirmer_veille);
+  $('#sel-accuse').value=String(d.accuse_reception);
+  for(const [id,cle] of [['pause','silence_fin'],['debut','attente_debut'],['confirmation','attente_confirmation']]){
+    $('#rng-'+id).value=d[cle];$('#val-'+id).textContent=d[cle]+' s';
+  }
   $('#rng-suite').value=d.duree_suite; $('#val-suite').textContent=d.duree_suite+' s';
   $('#rng-seuil').value=d.seuil_reveil; $('#val-seuil').textContent=(+d.seuil_reveil).toFixed(2);
 }
 async function setReglage(cle,valeur,cibleOuBtn){
-  // pour le segment mode : refléter la sélection tout de suite
-  if(cle==='mode') $$('#seg-mode button').forEach(x=>x.classList.toggle('on',x.dataset.v===valeur));
   const r=await post('/api/panneau/reglage',{cle,valeur});
-  if(cle==='tts.moteur') $$('#seg-tts button').forEach(x=>x.classList.toggle('on',x.dataset.v===valeur));
+  if(r.ok&&cle==='tts.moteur') $$('#seg-tts button').forEach(x=>x.classList.toggle('on',x.dataset.v===valeur));
   const zone={'mode':'#audio-msg','audio.micro':'#audio-msg','audio.haut_parleur':'#audio-msg',
+    'assistant.confirmer_veille':'#voix-msg','assistant.accuse_reception':'#voix-msg','assistant.silence_fin':'#voix-msg','assistant.attente_debut':'#voix-msg','assistant.attente_confirmation':'#voix-msg',
     'assistant.personnalite':'#voix-msg','assistant.duree_suite':'#voix-msg',
-    'assistant.seuil_reveil':'#wake-msg','tts.moteur':'#tts-msg',
+    'assistant.seuil_reveil':'#wake-msg','assistant.stabilite_reveil':'#wake-msg','tts.moteur':'#tts-msg','tts.profil':'#tts-msg','tts.voix_locale':'#tts-msg',
     'elevenlabs.voix':'#tts-msg','elevenlabs.modele':'#tts-msg'}[cle];
   const el=zone?$(zone):null;
-  if(el) el.innerHTML=`<span style="color:var(--${r.ok?'ok':'ko'})">${r.message||''}</span>`;
-  if(r.ok&&cle==='mode') setTimeout(chargerModeles,250);
+  if(el) el.innerHTML=`<span style="color:var(--${r.ok?'ok':'ko'})">${esc(r.message||'')}</span>`;
+  await chargerReglages();
+}
+async function apercuVoix(){
+  const bouton=$('#ecouter-voix'), lecteur=$('#apercu-audio');
+  bouton.disabled=true;$('#apercu-msg').textContent='Préparation de la voix…';
+  try{
+    const r=await fetch('/api/panneau/voix/apercu',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:$('#sel-voix-locale').value})});
+    if(!r.ok){const e=await r.json();throw new Error(e.message||'Préécoute indisponible');}
+    if(lecteur.dataset.blob)URL.revokeObjectURL(lecteur.dataset.blob);
+    const url=URL.createObjectURL(await r.blob());lecteur.src=url;lecteur.dataset.blob=url;lecteur.hidden=false;
+    $('#apercu-msg').textContent='Préécoute prête.';
+    try{await lecteur.play();}catch(e){$('#apercu-msg').textContent='Clique sur Lecture pour écouter la voix.';}
+  }catch(e){$('#apercu-msg').textContent=e.message;}finally{bouton.disabled=false;}
+}
+async function chargerFonctions(){
+  const d=await api('/api/panneau/fonctionnalites');
+  if(d.ok===false){$('#liste-fonctions').textContent=d.message;return;}
+  $('#fonctions-total').textContent=`${d.disponibles} groupes de fonctions disponibles`;
+  const labels={disponible:'Disponible',a_configurer:'À configurer',indisponible:'Indisponible'};
+  $('#liste-fonctions').innerHTML=(d.fonctions||[]).map(f=>`<article class="card"><h2>${esc(f.nom)}</h2>
+    <span class="badge ${f.statut==='disponible'?'on':'off'}">${esc(labels[f.statut]||f.statut)}</span>
+    <p>${esc(f.detail)}</p><ul>${(f.exemples||[]).map(e=>`<li>« ${esc(e)} »</li>`).join('')}</ul></article>`).join('');
 }
 async function testerVoix(){
   const r=await post('/api/panneau/tester-voix',{});
-  $('#tts-msg').innerHTML=`<span style="color:var(--${r.ok?'ok':'ko'})">${r.message||''}</span>`;
+  $('#tts-msg').innerHTML=`<span style="color:var(--${r.ok?'ok':'ko'})">${esc(r.message||'')}</span>`;
 }
 
 /* ---------- PERMISSIONS ---------- */
@@ -503,9 +666,10 @@ async function revoquer(nom,btn){
 
 function flash(r,cell){
   const el = cell? $('.msg',cell) : $('#etat-msg');
-  if(el) el.innerHTML=`<span style="color:var(--${r.ok?'ok':'ko'})">${r.message||''}</span>`;
+  if(el) el.innerHTML=`<span style="color:var(--${r.ok?'ok':'ko'})">${esc(r.message||'')}</span>`;
 }
-chargerModeles();
+chargerReglages();
 </script>
+<script src="/panneau/memoire.js"></script>
 </body>
 </html>

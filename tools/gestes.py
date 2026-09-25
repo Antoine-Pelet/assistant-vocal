@@ -134,7 +134,7 @@ def demande_demo_gestes(phrase: str) -> bool:
     nom="controler_gestes",
     description="Active ou coupe le contrôle par gestes de la main (webcam). A utiliser "
                 "pour 'active les gestes', 'coupe les gestes', 'allume/éteins la caméra "
-                "des gestes' ou 'Jarvis regarde mes mains'.",
+                "des gestes' ou 'Red regarde mes mains'.",
     parametres={
         "type": "object",
         "properties": {

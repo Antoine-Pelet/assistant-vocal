@@ -148,7 +148,7 @@ def google_home_allumer(appareil: str, actif: bool = True) -> str:
     return ("L'API officielle Google (Smart Device Management) ne permet pas "
             f"d'allumer/éteindre « {_nom_lisible(dev)} » : elle ne pilote que les Nest "
             "(thermostats/caméras). Pour des lumières, utilise l'intégration native "
-            "(les Philips Hue sont déjà gérées par Jarvis) ou un pont Home Assistant — "
+            "(les Philips Hue sont déjà gérées par Red) ou un pont Home Assistant — "
             "voir docs/google_home.md.")
 
 
@@ -173,5 +173,5 @@ def google_home_luminosite(appareil: str, niveau: int = 50) -> str:
         return _msg_config()
     return ("La luminosité n'est pas pilotable via l'API officielle Google (Smart Device "
             "Management ne fournit pas de trait de luminosité pour les lumières tierces). "
-            "Utilise l'intégration native (Philips Hue déjà gérées par Jarvis) ou un pont "
+            "Utilise l'intégration native (Philips Hue déjà gérées par Red) ou un pont "
             "Home Assistant — voir docs/google_home.md.")

@@ -344,6 +344,9 @@
       <h3>Voix</h3>
       <label class="controle-label" for="controleMoteurVoix">Moteur TTS</label>
       <select id="controleMoteurVoix"></select>
+      <label class="controle-label" for="controleVoixLocale">Voix française hors ligne</label>
+      <select id="controleVoixLocale"></select>
+      <p class="controle-sous-titre" id="controleDescriptionVoix"></p>
       <label class="controle-label" for="controleVoixEleven">Voix ElevenLabs</label>
       <select id="controleVoixEleven"></select>
       <label class="controle-label" for="controleModeleEleven">Modèle ElevenLabs</label>
@@ -472,9 +475,18 @@ function afficherControles(d) {
     : "Ollama est hors ligne";
 
   const labelsMoteur = {auto:"Auto", elevenlabs:"ElevenLabs", piper:"Piper",
-    kokoro:"Kokoro", windows:"Windows"};
+    chatterbox:"Chatterbox", kokoro:"Kokoro", windows:"Windows"};
   remplirSelect($("controleMoteurVoix"), d.voix.moteurs, d.voix.moteur,
     (m) => labelsMoteur[m] || m);
+
+  const locales = d.voix.locales || [];
+  $("controleVoixLocale").replaceChildren();
+  for (const v of locales) {
+    optionSelect($("controleVoixLocale"), v.id,
+      v.nom + (v.installee ? "" : " · non installée"), v.id === d.voix.locale);
+    $("controleVoixLocale").lastElementChild.disabled = !v.installee;
+  }
+  $("controleDescriptionVoix").textContent = locales.find(v => v.id === d.voix.locale)?.description || "";
 
   const voix = d.voix.elevenlabs.voix || [];
   $("controleVoixEleven").replaceChildren();
@@ -915,6 +927,8 @@ $("activerQualite").addEventListener("click", () => envoyerControle({
   modele:$("controleModeleCloud").value, profil:"qualite"}));
 $("activerLocal").addEventListener("click", () => envoyerControle({
   action:"modele_local", modele:$("controleModeleLocal").value}));
+$("controleVoixLocale").addEventListener("change", (e) => envoyerControle({
+  action:"voix_locale", valeur:e.target.value}));
 $("controleMoteurVoix").addEventListener("change", (e) => envoyerControle({
   action:"moteur_voix", valeur:e.target.value}));
 $("controleVoixEleven").addEventListener("change", (e) => envoyerControle({

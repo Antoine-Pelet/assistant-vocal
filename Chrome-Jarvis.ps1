@@ -23,9 +23,9 @@ try {
 } catch { }
 
 if ($dejaLance) {
-    Write-Host "Chrome + Jarvis tourne deja (port $port). Rien a faire." -ForegroundColor Green
+    Write-Host "Chrome + Red tourne deja (port $port). Rien a faire." -ForegroundColor Green
     Start-Sleep 2; exit 0
 }
 
-Write-Host "Lancement de Chrome + Jarvis (profil dedie, port $port)..." -ForegroundColor Cyan
+Write-Host "Lancement de Chrome + Red (profil dedie, port $port)..." -ForegroundColor Cyan
 & $chrome "--remote-debugging-port=$port" "--user-data-dir=$profil"

@@ -56,7 +56,7 @@ def chercher_inspiration(sujet):
     mcp_expose=True,
     description=(
         "Genere des idees de contenu en DELEGUANT a Hermes l'analyse du vault (tendances, "
-        "formats, hooks recurrents) puis la proposition de concepts. Jarvis repond tout de "
+        "formats, hooks recurrents) puis la proposition de concepts. Red repond tout de "
         "suite et annonce le resultat a voix haute quand c'est pret. Ex: 'genere-moi des idees'."),
 )
 def generer_idees_contenu():

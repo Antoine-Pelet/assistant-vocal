@@ -1,6 +1,39 @@
 # Configuration de Jarvis — copie ce fichier en config.yaml et mets tes valeurs.
 # config.yaml n'est PAS versionne (voir .gitignore) : tes secrets restent chez toi.
 
+# Origine des commandes du PC. Aucun satellite ou service réseau n'est activé ici.
+execution:
+  user_id: local                 # étiquette de contexte, pas une authentification
+  device_id: main_pc
+  room_id: null                  # ex. bureau ; null = demander la pièce pour « ici »
+
+# Catalogue spatial facultatif, distinct des zones de mémoire protégées.
+rooms: {}
+devices: {}
+# Exemple à adapter (remplacer les dictionnaires vides ci-dessus, sans les dupliquer) :
+# rooms:
+#   bureau:
+#     satellite: Red_bureau
+#     devices:
+#       light: bureau.light
+#       speaker: bureau.speaker
+#       computer: main_pc
+#   salon:
+#     satellite: Red_salon
+#     devices:
+#       light: salon.light
+#       television: salon.tv
+#       speaker: salon.speaker
+# devices:
+#   salon.light:
+#     kind: light
+#     name: Lumière du salon
+#     integration: hue           # seul pilote migré ici ; HA/MQTT restent futurs
+#     address: "3"              # identifiant de groupe Hue, choisi sur ton pont
+#     room_id: salon
+# Déclarer chaque appareil réellement pilotable. Un appareil absent est refusé.
+# Voir docs/architecture.md pour les contrats et les autres types d'appareils.
+
 mode: hybride                  # local | hybride | qualite  (voir docs/costs.md)
                                #  local   = tout local (Ollama + Piper), rien ne sort
                                #  hybride = DEFAUT : profil quotidien du fournisseur cloud ;
@@ -58,8 +91,31 @@ elevenlabs:                    # facultatif ; sans cle, Jarvis garde la voix Win
   langue: "fr"                 # force la langue (flash/turbo v2.5) : bonne prononciation des accents
 
 tts:
-  moteur: auto                 # auto | elevenlabs | piper | kokoro | windows
+  voix_locale: siwis_fr        # siwis_fr | tom_fr | jarvis_fr (style Jarvis français, hors ligne)
+  moteur: auto                 # auto | elevenlabs | piper | chatterbox | kokoro | windows
                                # auto = ElevenLabs en cloud, Piper/Kokoro en local
+  profil: jarvis               # profil Chatterbox dans voices ; indépendant des voix Piper
+
+# Moteur facultatif : installer_chatterbox.bat, puis moteur: chatterbox ci-dessus.
+# Les chemins sont relatifs au dossier du projet ; WAV non inclus.
+chatterbox:
+  modele: "models/chatterbox"
+  python: ".venv-chatterbox/Scripts/python.exe"
+  device: auto                 # auto | cuda | cpu ; repli CPU si CUDA échoue
+  threads: 4                   # threads CPU, évite de saturer tout le PC
+  timeout: 180                 # délai maximal par réponse, chargement inclus
+
+voices:
+  jarvis:
+    reference: "voices/jarvis_reference.wav"
+    exaggeration: 0.20
+    cfg_weight: 0.45
+    temperature: 0.8
+  reddington:
+    reference: "voices/reddington_reference.wav"
+    exaggeration: 0.40
+    cfg_weight: 0.35
+    temperature: 0.8
 
 hue:                           # Philips Hue, API locale
   pont: "192.168.1.XXX"        # adresse du pont sur ton reseau
@@ -78,6 +134,7 @@ audio:
     casque: "Casque"           # sous-chaine du nom de l'appareil de sortie (ou un index)
     enceintes: "Haut-parleurs"
   raccourci_mute: "ctrl+alt+m" # raccourci clavier global : couper/reactiver le wake word ("" = off)
+  raccourci_stop: "ctrl+alt+space" # coupe immédiatement la réponse en cours ("" = off)
 
 whisper:
   modele: "medium"
@@ -95,6 +152,9 @@ assistant:
   modele_reveil: "models/vosk-model-small-fr-0.22"
   stabilite_reveil: 3           # hypothèses successives avant activation
   duree_suite: 10              # secondes d'ecoute apres une reponse
+  confirmer_veille: true       # attend un accord explicite ; le silence prolonge l'écoute
+  accuse_reception: true       # « Compris » pendant le traitement de la demande
+  attente_debut: 4.0           # temps laissé pour commencer après le bip
   arbitrage_micro: true        # plusieurs micros entendent Hey Jarvis : seul le meilleur score repond
   arbitrage_fenetre: 0.18      # secondes laissees aux micros pour comparer leur detection
   arbitrage_verrou: 4.0        # evite une seconde reponse au meme wake word
@@ -112,9 +172,9 @@ assistant:
   auto_calibration: true       # mesure le bruit ambiant ~1 s au lancement et pose les seuils au-dessus
   # seuil_silence: 0.010       # en-dessous = silence (fin de phrase). Baisse si micro peu sensible
   # seuil_parole: 0.025        # au-dessus = parole sure (reprise sans wake word)
-  silence_fin: 1.2             # secondes de silence avant de considerer la phrase finie
+  silence_fin: 1.6             # pause tolérée au milieu d'une phrase (modifiable dans /panneau)
   duree_max: 20                # duree max d'un enregistrement (secondes)
-  attente_confirmation: 3.0    # secondes laissees pour repondre oui/non a une confirmation
+  attente_confirmation: 6.0    # secondes laissées pour commencer une réponse oui/non
   max_tours_outils: 6           # anti-boucle : nb max de cycles LLM -> outils par demande
   max_appels_outils: 12         # anti-emballement si le modele appelle plusieurs outils a la fois
   timeout_tour: 120             # duree totale max d'une demande, hors taches Hermes en fond
@@ -176,7 +236,7 @@ loopstr:                        # echeances de partenariats via flux iCal (voir 
   url: ""                       # URL du flux iCal Loopstr (donnees perso, non exposees via MCP)
 
 serveur:                       # UN serveur web pour TOUT (pont iPhone + webhook Twilio V2 + futures PWA)
-  actif: false                 # true = lance le serveur au demarrage (requis pour le pont iPhone)
+  actif: true                  # panneau local /panneau et pont iPhone
   port: 8790                   # port local unique ; UN seul tunnel ngrok le sert en entier
   # -- Deux facons d'exposer le port (choisis-en UNE) --
   # A) Jarvis ouvre le tunnel tout seul (pas besoin d'installer la commande ngrok) :
@@ -440,3 +500,15 @@ satellite_lan:
   delai_accuse_reveil: 2.5     # au-delà, le satellite utilise son bip local
   accuse_immediat: true        # accusé contextuel seulement pour une tâche lente
   progression_traitement_apres: 4.0     # annonce l'étape si le LLM cherche encore
+
+# Mémoire locale : les zones et leurs conditions se gèrent dans /panneau > Mémoire.
+# Les sept jours de rétention et la validation obligatoire ne sont pas désactivables.
+memoire:
+  session_minutes: 15  # Durée d’un déverrouillage, de 1 à 60 minutes ; verrouillé au redémarrage.
+  # Aucune échéance sur les souvenirs par défaut. Le champ de suppression programmée est facultatif.
+  # Calibrer sur un autre PC : python scripts/bench_memoire_crypto.py --appliquer
+  crypto:
+    memoryCost: 131072   # Kio : 128 Mio ; minimum accepté 64 Mio, maximum 512 Mio.
+    timeCost: 3          # Trois passes : environ 300 ms sur le PC de développement.
+    parallelism: 1      # crypto_pwhash de libsodium fixe p=1 ; les autres valeurs sont refusées.
+    algorithmVersion: 19  # Argon2 v1.3 ; algorithme fixé à Argon2id.

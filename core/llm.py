@@ -156,7 +156,7 @@ class OpenAIProvider(ProviderLLM):
         if raisonnement:
             kwargs["reasoning"] = raisonnement
         rep = self.client.responses.create(**kwargs)
-        cloud.enregistrer_usage(rep, "OpenAI (Jarvis)", self.modele)
+        cloud.enregistrer_usage(rep, "OpenAI (Red)", self.modele)
 
         blocs = []
         texte = (getattr(rep, "output_text", "") or "").strip()
@@ -213,7 +213,7 @@ class ClaudeProvider(ProviderLLM):
             if u is not None:
                 from core import budget
                 budget.enregistrer(
-                    "Claude (Jarvis)", self.modele,
+                    "Claude (Red)", self.modele,
                     getattr(u, "input_tokens", 0) or 0,
                     getattr(u, "output_tokens", 0) or 0,
                     cache_read=getattr(u, "cache_read_input_tokens", 0) or 0,

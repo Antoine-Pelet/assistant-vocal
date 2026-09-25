@@ -72,7 +72,7 @@ def mon_budget() -> str:
 
 @outil(
     nom="mode_routage",
-    description="Change le mode de routage de Jarvis : 'local' (tout local, gratuit, "
+    description="Change le mode de routage de Red : 'local' (tout local, gratuit, "
                 "rien ne sort), 'hybride' (défaut : réflexes + vision en cloud éco, "
                 "tâches de fond à Hermes), ou 'qualite' (cloud, modèle le plus fort). "
                 "Pour « passe en local », « repasse en cloud / hybride », « mode "

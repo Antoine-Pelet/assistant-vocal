@@ -1,5 +1,9 @@
 > **Installation locale Red :** utilise `lancer_red.bat`. Premier lancement sur un autre PC : `installer_red.bat`. [Guide Red](DEMARRER_RED.md).
 
+> **Voix personnalisées locales :** Chatterbox Multilingual avec profils WAV ; [installation et configuration](docs/chatterbox.md).
+
+> **Architecture et pièces :** séparation modules/services/intégrations/appareils, contexte d'origine et événements locaux ; [guide d'évolution](docs/architecture.md).
+
 # 🤖 Jarvis — assistant vocal local
 
 *[English version](README.en.md)*
@@ -253,3 +257,12 @@ de vrais secrets (vois `.gitignore`).
 ## 📄 Licence
 
 MIT — voir [LICENSE](LICENSE).
+
+## Mémoire persistante et zones protégées
+
+Red demande un accord pour chaque ajout, modification et suppression de souvenir.
+Les souvenirs sont conservés sans limite par défaut. Le panneau `/panneau`, onglet
+**Mémoire**, permet de gérer les zones Argon2id/XChaCha20-Poly1305, les mots de passe
+au clavier ou à la voix, et les échéances facultatives. L’historique en lecture
+seule (sept jours) a son propre mot de passe, à définir au premier accès.
+Voir [les instructions de mémoire](docs/memoire.md).

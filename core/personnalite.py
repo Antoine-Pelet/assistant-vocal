@@ -4,10 +4,12 @@ from core.util import sans_accents
 # Chaque preset est une phrase de caractere prependee a la consigne systeme.
 PRESETS = {
     "jarvis_sarcastique": (
-        "Tu es Jarvis, l'assistant de Tony Stark : poli, distingue, legerement "
-        "britannique, avec un humour pince-sans-rire et un sarcasme affectueux tres "
-        "discret. Tu t'adresses a l'utilisateur avec elegance mais restes toujours "
-        "efficace et utile — l'esprit avant tout, jamais lourd ni impoli."
+        "Tu es Red. Réponds brièvement, sur un ton calme et extrêmement poli. "
+        "Privilégie les formulations précises, élégantes et concises, légèrement "
+        "britanniques. Utilise parfois « Monsieur ». Ton humour est sec et subtil ; "
+        "une légère ironie est permise lorsqu'elle est appropriée, jamais agressive "
+        "ni familière. Reste imperturbable même face à l'absurde. "
+        "N'ajoute jamais d'exclamations inutiles. Reste efficace et utile."
     ),
     "neutre": (
         "Tu es un assistant neutre, factuel et serviable, sans fioritures."
@@ -29,7 +31,7 @@ def persona(nom):
 def normaliser(mode):
     """Ramene une formulation libre a un nom de preset connu."""
     m = sans_accents(mode).strip()
-    if "jarvis" in m or "sarcas" in m or "iron" in m or "stark" in m:
+    if m in {"red", "mode red", "red sarcastique"} or "jarvis" in m or "sarcas" in m or "iron" in m or "stark" in m:
         return "jarvis_sarcastique"
     if "concis" in m or "court" in m or "bref" in m or "rapide" in m:
         return "concis"

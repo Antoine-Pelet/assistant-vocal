@@ -51,6 +51,8 @@ import threading
 import time
 
 from core.config import reglage
+from core.contexte import ExecutionContext, use
+from uuid import uuid4
 from core.util import nettoyer_reponse_vocale, sans_accents
 
 LOG = logging.getLogger("jarvis.satellite")
@@ -99,9 +101,10 @@ def _satellites():
 
 def _systeme(piece):
     """Prompt système du satellite : Jarvis, avec le contexte de pièce."""
-    base = ("Tu es Jarvis, assistant vocal, répondant depuis un satellite dans une "
-            "pièce de la maison. Réponds en UNE à deux phrases courtes, en français, "
-            "avec ta personnalité. Ne commence jamais une réponse finale par "
+    base = ("Tu es Red, assistant vocal, répondant depuis un satellite dans une "
+            "pièce de la maison. Réponds en UNE à deux phrases courtes, en français, avec ta personnalité. "
+            "Lorsque tu attends une réponse, pose une seule question courte, sans énumérer les réponses possibles ni expliquer comment répondre, sauf demande explicite de l'utilisateur. "
+            "Ne commence jamais une réponse finale par "
             "« attends », « un instant », « je regarde » ou « je cherche » : le "
             "système annonce lui-même les vraies recherches lentes. Utilise les "
             "outils quand c'est utile. Si une tâche "
@@ -123,6 +126,7 @@ class _Session:
     """État d'une connexion satellite : identité, pièce, audio en cours, et une
     éventuelle action N3 en attente de confirmation vocale."""
     def __init__(self):
+        self.session_id = uuid4().hex
         self.satellite = None
         self.piece = ""
         self.audio = bytearray()
@@ -151,17 +155,17 @@ class _Session:
         self.relances_restantes = 0
 
 
-def _transcrire(pcm_bytes):
+def _transcrire(pcm_bytes, context=None):
     """PCM 16-bit LE mono 16 kHz -> texte (faster-whisper, modèle partagé lazy)."""
-    import numpy as np
-    audio = (np.frombuffer(bytes(pcm_bytes), dtype=np.int16).astype(np.float32) / 32768.0)
-    if audio.size < TAUX * 0.3:
+    from core.contexte import current
+    from services import AudioData
+    from services.existing import ExistingSTT
+    if len(pcm_bytes) < TAUX * 2 * 0.3:
         return ""
     modele = _whisper()
     if modele is None:
         return ""
-    segments, _ = modele.transcribe(audio, language="fr", beam_size=1)
-    return " ".join(s.text for s in segments).strip()
+    return ExistingSTT(modele).transcribe(AudioData(bytes(pcm_bytes), TAUX), context or current())
 
 
 _WHISPER = None
@@ -191,17 +195,14 @@ def _whisper():
     return _WHISPER
 
 
-def _tts_pcm(texte):
+def _tts_pcm(texte, context=None):
     """Synthétise `texte` -> (pcm_bytes 16-bit LE mono, frequence_hz) ou (b"", 0)."""
     try:
         from core.tts import tts
-        res = tts().synthetiser(texte)
-        if not res:
-            return b"", 0
-        import numpy as np
-        audio, freq = res
-        pcm = np.asarray(audio, dtype=np.int16).tobytes()
-        return pcm, int(freq)
+        from core.contexte import current
+        from services.existing import ExistingTTS
+        audio = ExistingTTS(tts()).synthesize(texte, context or current())
+        return (audio.pcm, audio.sample_rate) if audio else (b"", 0)
     except Exception:
         LOG.exception("satellite: TTS")
         return b"", 0
@@ -211,7 +212,7 @@ _TTS_COURT = {}
 _TTS_COURT_LOCK = threading.Lock()
 
 
-def _tts_pcm_court(texte):
+def _tts_pcm_court(texte, context=None):
     """TTS mis en cache pour les accusés répétés du satellite.
 
     Le premier passage utilise le moteur vocal configuré ; les suivants évitent
@@ -220,7 +221,7 @@ def _tts_pcm_court(texte):
     with _TTS_COURT_LOCK:
         if texte in _TTS_COURT:
             return _TTS_COURT[texte]
-        resultat = _tts_pcm(texte)
+        resultat = _tts_pcm(texte, context)
         if resultat[0]:
             _TTS_COURT[texte] = resultat
         return resultat
@@ -366,10 +367,7 @@ def _executer_decision_prioritaire(session, decision):
                 annonce = o.annonce(args) if o.annonce else None
             except Exception:
                 annonce = None
-            niveau = registre.niveau(nom)
-            suffixe = " Tu confirmes ? (oui / non)"
-            if niveau == "N2":
-                suffixe += " Tu peux aussi dire oui, toujours."
+            suffixe = " Tu confirmes ?"
             return {"reponse": (annonce or f"Je vais exécuter {nom}.") + suffixe,
                     "attente_confirmation": True}
         texte = _executer_outil(nom, args)
@@ -378,15 +376,34 @@ def _executer_decision_prioritaire(session, decision):
     return {"reponse": texte, "attente_confirmation": False}
 
 
+def _contexte_session(session):
+    from core.maison import room_for_satellite
+    if not getattr(session, "session_id", None):
+        session.session_id = uuid4().hex
+    satellite_id = session.satellite
+    room = room_for_satellite(satellite_id, session.piece or None) if satellite_id else None
+    # Identité matérielle issue de la session authentifiée, jamais un utilisateur admin implicite.
+    return ExecutionContext(user_id="anonymous", session_id=session.session_id,
+                            room_id=room, device_id=satellite_id,
+                            satellite_id=satellite_id, source="satellite")
+
+
 def traiter_texte(session, phrase):
+    with use(_contexte_session(session)):
+        return _traiter_texte(session, phrase)
+
+
+def _traiter_texte(session, phrase):
     """Fait tourner la phrase dans le LLM + outils, avec contexte pièce et droits
     maison (N2 confirmable/mémorisable, N3 toujours confirmée). Renvoie un dict
     {reponse, attente_confirmation(bool)}."""
     from core import registre
+    from core.contexte import current
+    from services.existing import ExistingLLM
     session.historique.append({"role": "user", "content": phrase})
 
     from core.routage_intentions import decider_prioritaire
-    decision = decider_prioritaire(phrase, piece=session.piece)
+    decision = decider_prioritaire(phrase, piece=current().room_id or "")
     if decision is not None:
         resultat = _executer_decision_prioritaire(session, decision)
         if resultat is not None:
@@ -395,7 +412,7 @@ def traiter_texte(session, phrase):
     from core.llm import llm
     P = llm()
     if not P.disponible():
-        return {"reponse": "Le cerveau de Jarvis n'est pas disponible.", "attente_confirmation": False}
+        return {"reponse": "Le cerveau de Red n'est pas disponible.", "attente_confirmation": False}
 
     from core.routage_intentions import modules_pour_phrase
     modules_outils = modules_pour_phrase(phrase)
@@ -414,9 +431,9 @@ def traiter_texte(session, phrase):
                     "attente_confirmation": False}
         try:
             debut_llm = time.monotonic()
-            rep = P.repondre(_systeme(session.piece), session.historique,
+            rep = ExistingLLM(P).respond(_systeme(current().room_id), session.historique,
                              registre.schemas_api(local_seulement=(P.nom == "Ollama"),
-                                                  modules=modules_outils))
+                                                  modules=modules_outils), current())
             LOG.info("satellite %s: latence LLM %s %.3fs (tour=%s)",
                      session.piece or session.satellite or "?", P.nom,
                      time.monotonic() - debut_llm, numero_tour + 1)
@@ -455,9 +472,7 @@ def traiter_texte(session, phrase):
                         q = o.annonce(b.input or {})
                     except Exception:
                         q = None
-                suffixe = " Tu confirmes ? (oui / non)"
-                if registre.niveau(b.name) == "N2":
-                    suffixe += " Tu peux aussi dire oui, toujours."
+                suffixe = " Tu confirmes ?"
                 return {"reponse": (q or "C'est une action sensible.") + suffixe,
                         "attente_confirmation": True}
             res = _executer_outil(b.name, b.input or {})
@@ -468,6 +483,11 @@ def traiter_texte(session, phrase):
 
 
 def _resoudre_confirmation(session, phrase):
+    with use(_contexte_session(session)):
+        return _resoudre_confirmation_contextuelle(session, phrase)
+
+
+def _resoudre_confirmation_contextuelle(session, phrase):
     """L'utilisateur répond oui/non à une action sensible en attente."""
     from core import registre
     from core.util import sans_accents
@@ -511,7 +531,7 @@ def monter_routes(app):
 
         async def envoyer_audio(texte, court=False):
             synthese = _tts_pcm_court if court else _tts_pcm
-            pcm, freq = await asyncio.to_thread(synthese, texte)
+            pcm, freq = await asyncio.to_thread(synthese, texte, _contexte_session(sess))
             if pcm:
                 await envoyer({"type": "audio_debut", "freq": freq})
                 for i in range(0, len(pcm), 4096):
@@ -637,7 +657,7 @@ def monter_routes(app):
                     # phrase d'attente ici serait nécessairement générique et peut
                     # parasiter une simple salutation. La progression ne commence
                     # qu'après transcription, lorsque la demande le justifie.
-                    phrase = await asyncio.to_thread(_transcrire, audio)
+                    phrase = await asyncio.to_thread(_transcrire, audio, _contexte_session(sess))
                     if not phrase:
                         await parler("Je n'ai rien entendu.")
                         await proposer_relance()
@@ -717,7 +737,7 @@ def _app_lan():
     if _APP_LAN is None:
         from fastapi import FastAPI
         _APP_LAN = FastAPI(
-            title="Jarvis Satellite LAN",
+            title="Red Satellite LAN",
             docs_url=None,
             redoc_url=None,
             openapi_url=None,

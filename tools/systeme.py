@@ -172,7 +172,7 @@ def eteindre_pc() -> str:
     try:
         r = subprocess.run(
             ["shutdown", "/s", "/t", str(delai), "/c",
-             "Extinction demandee via Jarvis. Dis « annule l'extinction » pour l'arreter."],
+             "Extinction demandee via Red. Dis « annule l'extinction » pour l'arreter."],
             capture_output=True, text=True, encoding="utf-8", errors="replace")
         if r.returncode == 0x45B:  # 1115 : un arret est deja programme
             return "Une extinction est deja en cours. Dis « annule l'extinction » pour l'arreter."

@@ -1,12 +1,12 @@
 @echo off
-title Sauvegarder Jarvis
+title Sauvegarder Red
 rem Envoie tes dernieres modifications sur GitHub en un clic :
 rem ajoute tout, cree un commit date, puis pousse. Les fichiers sensibles
 rem (reglages_local.py, memoire.json, voix...) restent exclus via .gitignore.
 cd /d "%~dp0"
 
 echo ============================================
-echo   Sauvegarde de Jarvis sur GitHub
+echo   Sauvegarde de Red sur GitHub
 echo ============================================
 echo.
 

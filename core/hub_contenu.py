@@ -270,7 +270,7 @@ def _maj_progression(vault: Path, fiche_nom: str, total: int) -> None:
         f"Derniere fiche indexee : {fiche_nom}\n"
         f"Fiches indexees : {total}\n"
         f"Date : {datetime.now():%Y-%m-%d %H:%M}\n"
-        f"Greffier : pipeline Jarvis (append-only, dedup shortcode)\n",
+        f"Greffier : pipeline Red (append-only, dedup shortcode)\n",
         encoding="utf-8")
 
 

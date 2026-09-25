@@ -129,7 +129,7 @@ def repondre_texte(systeme: str, historique: list, max_tokens: int = 500,
         if raisonnement:
             kwargs["reasoning"] = raisonnement
         rep = client.responses.create(**kwargs)
-        enregistrer_usage(rep, "OpenAI (Jarvis)", cible)
+        enregistrer_usage(rep, "OpenAI (Red)", cible)
         return (rep.output_text or "").strip()
 
     client = client_anthropic()
@@ -137,7 +137,7 @@ def repondre_texte(systeme: str, historique: list, max_tokens: int = 500,
         raise RuntimeError("cle Anthropic absente (anthropic.cle)")
     rep = client.messages.create(model=cible, max_tokens=max_tokens,
                                  system=systeme, messages=historique)
-    enregistrer_usage(rep, "Claude (Jarvis)", cible)
+    enregistrer_usage(rep, "Claude (Red)", cible)
     return "".join(b.text for b in rep.content
                    if getattr(b, "type", None) == "text").strip()
 
@@ -167,7 +167,7 @@ def repondre_vision(systeme: str, texte: str, image_b64: str,
         if raisonnement:
             kwargs["reasoning"] = raisonnement
         rep = client.responses.create(**kwargs)
-        enregistrer_usage(rep, "OpenAI (Jarvis)", cible)
+        enregistrer_usage(rep, "OpenAI (Red)", cible)
         return (rep.output_text or "").strip()
 
     client = client_anthropic()
@@ -181,7 +181,7 @@ def repondre_vision(systeme: str, texte: str, image_b64: str,
             {"type": "text", "text": texte},
         ]}],
     )
-    enregistrer_usage(rep, "Claude (Jarvis)", cible)
+    enregistrer_usage(rep, "Claude (Red)", cible)
     return "".join(b.text for b in rep.content
                    if getattr(b, "type", None) == "text").strip()
 
@@ -222,7 +222,7 @@ def decider_action_vision(systeme: str, texte: str, image_b64: str,
         if raisonnement:
             kwargs["reasoning"] = raisonnement
         rep = client.responses.create(**kwargs)
-        enregistrer_usage(rep, "OpenAI (Jarvis)", cible)
+        enregistrer_usage(rep, "OpenAI (Red)", cible)
         for item in rep.output:
             if getattr(item, "type", None) == "function_call":
                 args = getattr(item, "arguments", "{}") or "{}"
@@ -243,7 +243,7 @@ def decider_action_vision(systeme: str, texte: str, image_b64: str,
             {"type": "text", "text": texte},
         ]}],
     )
-    enregistrer_usage(rep, "Claude (Jarvis)", cible)
+    enregistrer_usage(rep, "Claude (Red)", cible)
     for bloc in rep.content:
         if getattr(bloc, "type", None) == "tool_use":
             return bloc.input

@@ -28,8 +28,25 @@ class Decision:
 def decider_prioritaire(phrase: str, piece: str = "") -> Decision | None:
     """Renvoie une route déterministe commune au PC et aux satellites."""
     phrase = str(phrase or "").strip()
+    from core.fonctionnalites import demande_fonctions
+    if demande_fonctions(phrase):
+        return Decision("outil", "fonctions_red")
+    from core.reveil import retirer_activation
+    commande = sans_accents(retirer_activation(phrase)).strip(" .!?").lower()
+    if commande in {"/panneau", "panneau", "ouvre le panneau", "ouvre le panneau de configuration"}:
+        return Decision("outil", "ouvrir_panneau")
     if not phrase:
         return None
+
+    # Une pièce configurée a priorité pour les commandes spatiales simples.
+    # Sans catalogue explicite, les routes historiques gardent leur comportement.
+    import re
+    from core.config import reglage
+    if reglage("rooms", {}) or reglage("devices", {}):
+        match = re.fullmatch(r"(allume|eteins) (?:la |les )?(?:lumiere|lumieres)(?: (?:dans |de )?(.+))?", commande)
+        if match:
+            return Decision("outil", "allumer_lumiere", {
+                "piece": match.group(2) or piece or "ici", "allumer": match.group(1) == "allume"})
 
     # Caméra/gestes : commandes locales explicites, avant toute interprétation
     # domotique ou média.
@@ -151,7 +168,7 @@ _DOMAINES = (
     (("instagram", "abonne", "followers", "vues"), {"instagram"}),
     (("appel", "appelle", "telephone", "raccroche"), {"appels", "appel_direct"}),
     (("obs", "stream", "direct", "replay", "scene"), {"obs", "scenes"}),
-    (("memoire", "souviens", "rappelle toi", "oublie"), {"memoire"}),
+    (("memoire", "souviens", "rappelle toi", "oublie", "retiens", "memorise", "souvenir"), {"memoire"}),
     (("note", "notes", "idee", "pense bete"), {"notes"}),
     (("mode hybride", "mode qualite", "mode local", "mode cloud"),
      {"budget", "modes"}),

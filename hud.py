@@ -187,7 +187,7 @@ def _synchroniser_controles():
 
 def _etat_controles():
     """Etat strictement non sensible utilise par le tiroir de configuration."""
-    from core import cloud, panneau
+    from core import cloud, panneau, voix_locales
     from core.config import reglage
     from core.routage import mode_actuel
 
@@ -239,7 +239,7 @@ def _etat_controles():
             },
             "modeles": {
                 "openai": modeles_openai,
-                "anthropic": [{"nom": n, "role": "Configure dans Jarvis",
+                "anthropic": [{"nom": n, "role": "Configure dans Red",
                                 "accessible": None} for n in modeles_anthropic],
             },
             "openai_joignable": bool(openai.get("joignable")),
@@ -250,11 +250,13 @@ def _etat_controles():
             "joignable": panneau._ollama_joignable(),
         },
         "voix": {
+            "locales": voix_locales.catalogue(),
+            "locale": voix_locales.selection(),
             "moteur": reglage("tts.moteur", "auto"),
             "elevenlabs_voix": reglage("elevenlabs.voix", ""),
             "elevenlabs_modele": reglage("elevenlabs.modele", "eleven_flash_v2_5"),
             "elevenlabs": eleven,
-            "moteurs": ["auto", "elevenlabs", "piper", "kokoro", "windows"],
+            "moteurs": ["auto", "elevenlabs", "piper", "chatterbox", "kokoro", "windows"],
             "modeles_elevenlabs": ["eleven_flash_v2_5", "eleven_multilingual_v2"],
         },
         "panneau_url": f"http://127.0.0.1:{int(reglage('serveur.port', 8790))}/panneau",
@@ -277,6 +279,8 @@ def _appliquer_controle(donnees):
             fournisseur=str(donnees.get("fournisseur", "openai")).strip().lower())
     elif action == "moteur_voix":
         resultat = panneau._definir_reglage("tts.moteur", donnees.get("valeur", ""))
+    elif action == "voix_locale":
+        resultat = panneau._definir_reglage("tts.voix_locale", donnees.get("valeur", ""))
     elif action == "voix_elevenlabs":
         resultat = panneau._definir_reglage(
             "elevenlabs.voix", donnees.get("valeur", ""))
@@ -287,7 +291,7 @@ def _appliquer_controle(donnees):
         from core import voix
         threading.Thread(
             target=voix.parler,
-            args=("Test de la voix Jarvis. Tout fonctionne.",),
+            args=("Test de la voix Red. Tout fonctionne.",),
             daemon=True,
             name="hud-test-voix",
         ).start()
@@ -315,6 +319,11 @@ class _Poignee(BaseHTTPRequestHandler):
             self._flux()
         elif chemin == "/api/controle":
             self._controle_etat()
+        elif chemin == "/panneau":
+            from core.config import reglage
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{int(reglage('serveur.port', 8790))}/panneau")
+            self.end_headers()
         elif chemin in ("/", "/hud.html", "/index.html"):
             self._page()
         else:
