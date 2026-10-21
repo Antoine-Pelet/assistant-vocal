@@ -1,4 +1,4 @@
-"""Contrôle par gestes — côté Jarvis (Python 3.13).
+"""Contrôle par gestes — côté Red (Python 3.13).
 
 Pilote le SOUS-PROCESS tracker (Python 3.11 isolé, cf. gestes/tracker.py), reçoit
 les labels de gestes en loopback (POST /api/gestes, protégé par un token), et les
@@ -22,7 +22,7 @@ from pathlib import Path
 from core.config import reglage
 from core.util import sans_accents
 
-LOG = logging.getLogger("jarvis.gestes")
+LOG = logging.getLogger("assistant.gestes")
 _RACINE = Path(__file__).resolve().parent.parent
 
 _TOKEN = None          # jeton courant (None = gestes coupés) ; protège /api/gestes
@@ -33,7 +33,7 @@ _PROC_REGARD = None    # contrôle local du pointeur par les yeux
 _COUPER_TTS = None     # callback fourni par jarvis14 (couper_parole)
 _FEEDBACK = None       # callback fourni par jarvis14 (bip + flash HUD)
 _CURSEUR_LUM = {}      # compatibilité des anciens mappings par pincement
-_DERNIER = 0.0         # anti-rebond côté Jarvis (en plus du cooldown du tracker)
+_DERNIER = 0.0         # anti-rebond côté Red (en plus du cooldown du tracker)
 
 # Mapping par défaut geste -> action (surchargé par config.yaml gestes.mapping).
 # TOUTES les actions ici sont N1/N2 par construction.
@@ -291,10 +291,10 @@ def _traiter(geste):
         except Exception:
             pass
     if geste == "armement":
-        return  # simple fenêtre "Jarvis regarde" : pas d'action, juste le feedback
+        return  # simple fenêtre "Red regarde" : pas d'action, juste le feedback
 
     now = time.time()
-    if now - _DERNIER < 0.4:      # anti-rebond côté Jarvis
+    if now - _DERNIER < 0.4:      # anti-rebond côté Red
         return
     _DERNIER = now
 

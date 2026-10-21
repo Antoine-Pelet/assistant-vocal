@@ -32,5 +32,5 @@ if ($redMode.Trim() -eq 'local') {
     & $redPython -c "from core.llm import llm; import sys; sys.exit(0 if llm().disponible() else 1)"
     if ($LASTEXITCODE -ne 0) { throw 'Modele local absent : relance installer_red.bat.' }
 }
-if ($Diagnostic) { & $redPython -u scripts\doctor.py } else { & $redPython -u jarvis14.py }
+if ($Diagnostic) { & $redPython -u scripts\doctor.py } else { & $redPython -u -m assistant_vocal }
 exit $LASTEXITCODE

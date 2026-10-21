@@ -1,0 +1,1 @@
+"""Ressources du backend Red."""

@@ -103,8 +103,7 @@ plus reprendre la parole ni lancer de nouveaux outils après le début d'un autr
 
 
 Pour une voix personnalisée à partir d’un WAV, consulte le [guide Chatterbox](docs/chatterbox.md).
-Le moteur Chatterbox Multilingual fonctionne localement, avec profils `jarvis` et
-`reddington`, et conserve Piper/Windows en secours. Le WAV Reddington est installé ; le profil Chatterbox correspondant est actif.
+Le moteur Chatterbox Multilingual fonctionne localement, avec profils configurables, et conserve Piper/Windows en secours. Le WAV Reddington est installé ; le profil Chatterbox correspondant est actif.
 
 
 Red demande maintenant simplement « Est-ce que je peux me mettre en veille ? ».
@@ -113,12 +112,15 @@ ta réponse, sans réciter les choix possibles. Le silence ne confirme toujours
 pas la veille. La mémorisation d'une autorisation reste utilisable si tu la demandes.
 
 Le fichier fourni est copié sans transformation dans `voices/reddington_reference.wav`.
-`tts.moteur: chatterbox` et `tts.profil: reddington` activent cette référence
+`tts.engine: chatterbox` et `tts.profile: reddington` activent cette référence
 au prochain lancement. Piper reste disponible dans le panneau et sert de secours.
 Un échantillon de synthèse est disponible dans `logs/red-reddington-sobre-confirmation.wav`.
 Les messages et l'interface utilisent le nom Red ; les identifiants techniques
 historiques restent compatibles avec les configurations existantes.
 
-Les paramètres Reddington ont été ajustés à cette référence : xaggeration: 0.25,
-cfg_weight: 0.5, 	emperature: 0.65. Les deux phrases de validation ont été
+Les paramètres Reddington ont été ajustés à cette référence : exaggeration: 0.25,
+cfg_weight: 0.5, temperature: 0.65. Les deux phrases de validation ont été
 correctement retranscrites par Whisper local, avec génération Chatterbox sur CUDA.
+
+
+Depuis la refonte : démarrage sans HUD/overlay/cockpit. Voir [README](README.md) et [rapport](docs/refonte-rapport.md). Le panneau local facultatif reste disponible.

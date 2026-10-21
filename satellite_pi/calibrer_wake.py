@@ -43,7 +43,7 @@ def main():
     print(
         f"Calibration pendant {args.secondes:.0f} s. "
         f"Micro {taux_capture} Hz -> {TAUX} Hz. "
-        "Dites plusieurs fois : Hey Jarvis."
+        "Dites plusieurs fois : Hey Red."
     )
     debut = time.monotonic()
     with sd.InputStream(

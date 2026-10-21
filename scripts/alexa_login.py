@@ -129,7 +129,7 @@ def _nb_cookies_session(login):
 
 async def _verifier(email):
     """Vérif DURE : rejoue le vrai chemin runtime (nouvelle session depuis l'OAuth
-    sauvé) et confirme par un appel réel. C'est ce que fera Jarvis au démarrage."""
+    sauvé) et confirme par un appel réel. C'est ce que fera Red au démarrage."""
     from alexapy import AlexaAPI
     oauth = _charger_oauth(email)
     a_refresh = bool(oauth.get("refresh_token"))
@@ -255,7 +255,7 @@ async def _login_navigateur():
 
         if await _verifier(email):
             print("\n✅ Connecté à Alexa, session durable vérifiée (refresh_token).")
-            print("   Redémarre Jarvis, puis dis « mes appareils Alexa »,")
+            print("   Redémarre Red, puis dis « mes appareils Alexa »,")
             print("   ou teste tout de suite : python scripts/alexa_login.py --check")
         else:
             print("\n⚠️ Login capturé mais la session durable n'est pas exploitable.")

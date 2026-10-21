@@ -23,7 +23,7 @@ from core.config import reglage
 from core.registre import outil
 from core.util import sans_accents
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 _RACINE = Path(__file__).resolve().parent.parent

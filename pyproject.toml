@@ -1,60 +1,115 @@
 [project]
-name = "jarvis-vocal"
+name = "red-assistant"
 version = "0.1.0"
-description = "Assistant vocal local en francais, pilote par OpenAI ou Ollama (domotique, PC, web, communication)."
+description = "Assistant vocal local en francais, Ollama et moteurs locaux, cloud optionnel (domotique, PC, web, communication)."
 readme = "README.md"
 authors = [
-    { name = "jarvis-vocal" }
+    { name = "red-assistant" }
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "pynacl>=1.6,<2",
+    "PyYAML>=6.0",
+    "requests>=2.32",
+    "PyNaCl>=1.6,<2",
     "cryptography>=44",
-    "alexapy>=1.30.0",
-    "anthropic>=0.120.2",
-    "audioop-lts>=0.2.2",
-    "ddgs>=9.14.4",
-    "discord-py>=2.7.1",
-    "fastapi>=0.141.1",
-    "faster-whisper>=1.2.1",
-    "google-api-python-client>=2.198.0",
-    "google-auth-httplib2>=0.4.1",
-    "google-auth-oauthlib>=1.4.0",
-    "icalendar>=7.2.2",
+    "truststore>=0.10",
+]
+
+[project.optional-dependencies]
+speech = [
+    "numpy>=2.2",
+    "scipy>=1.15",
+    "faster-whisper>=1.2",
+    "vosk==0.3.45",
+    "piper-tts>=1.3",
+]
+admin = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "websockets>=14",
+]
+desktop = [
+    "sounddevice>=0.5",
     "keyboard>=0.13.5",
-    "mcp>=2.0.0",
-    "miniaudio>=1.71",
-    "mss>=10.2.0",
-    "numpy>=2.5.1",
-    # Bibliothèques CUDA pour faster-whisper sur GPU NVIDIA : uniquement là où
-    # les wheels existent (Windows/Linux x86_64). Skipées sur macOS et ARM,
-    # sinon `pip install` échoue (aucune wheel) — faster-whisper tourne alors en
-    # CPU, sans ces paquets. Marqueur = pas macOS ET machine x86_64/AMD64.
-    "nvidia-cublas-cu12>=12.9.2.10 ; platform_system != 'Darwin' and (platform_machine == 'x86_64' or platform_machine == 'AMD64')",
-    "nvidia-cudnn-cu12>=9.24.0.43 ; platform_system != 'Darwin' and (platform_machine == 'x86_64' or platform_machine == 'AMD64')",
-    "nvidia-ml-py>=13.610.43 ; platform_system != 'Darwin' and (platform_machine == 'x86_64' or platform_machine == 'AMD64')",
-    "obsws-python>=1.8.0",
-    "ollama>=0.6.2",
-    "onnxruntime>=1.28.0",
-    "openai>=3.13.0",
-    "openwakeword>=0.4.0",
-    "pillow>=12.3.0",
-    "piper-tts>=1.3.0",
-    "playwright>=1.62.0",
-    "psutil>=7.2.2",
-    "pyngrok>=8.1.2",
-    "pyyaml>=6.0.3",
-    "soundcard>=0.4.6",
-    "sounddevice>=0.5.5",
-    "truststore>=0.10.4",
-    "vosk>=0.3.45",
-    "twilio>=9.10.9",
-    "websockets>=17.0.1",
+    "pillow>=11",
+    "mss>=10",
+    "psutil>=7",
+    "miniaudio>=1.61",
+    "ddgs>=9",
+]
+local = [
+    "numpy>=2.2",
+    "scipy>=1.15",
+    "faster-whisper>=1.2",
+    "vosk==0.3.45",
+    "piper-tts>=1.3",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "websockets>=14",
+    "sounddevice>=0.5",
+    "keyboard>=0.13.5",
+    "pillow>=11",
+    "mss>=10",
+    "psutil>=7",
+    "miniaudio>=1.61",
+    "ddgs>=9",
+]
+cloud = [
+    "openai>=2",
+    "anthropic>=0.80",
+]
+calls = [
+    "twilio>=9",
+    "pyngrok>=8",
+    "soundcard>=0.4",
+    "audioop-lts>=0.2; python_version >= '3.13'",
+]
+discord = [
+    "discord-py>=2.5",
+    "audioop-lts>=0.2; python_version >= '3.13'",
+]
+agenda = [
+    "google-api-python-client>=2.160",
+    "google-auth-httplib2>=0.2",
+    "google-auth-oauthlib>=1.2",
+    "icalendar>=6",
+]
+alexa = [
+    "alexapy>=1.30",
+]
+obs = [
+    "obsws-python>=1.8",
+]
+browser = [
+    "playwright>=1.50",
+]
+mcp = [
+    "mcp>=1.20",
+]
+cuda = [
+    "nvidia-cublas-cu12>=12.9; platform_system != 'Darwin' and (platform_machine == 'x86_64' or platform_machine == 'AMD64')",
+    "nvidia-cudnn-cu12>=9; platform_system != 'Darwin' and (platform_machine == 'x86_64' or platform_machine == 'AMD64')",
+]
+dev = [
+    "httpx>=0.28",
+    "build>=1.2",
+    "black>=24",
 ]
 
 [project.scripts]
-jarvis-vocal = "jarvis_vocal:main"
+red-assistant = "assistant_vocal.__main__:main"
+jarvis-vocal = "assistant_vocal.__main__:main" # compatibilité temporaire
 
 [build-system]
-requires = ["uv_build>=0.12.1,<0.13.0"]
-build-backend = "uv_build"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+namespaces = false
+include = ["assistant_vocal*", "audio*", "core*", "services*", "integrations*", "tools*", "modules*", "security*", "conversation*", "transports*", "interfaces*", "observability*", "devices*", "web*", "scripts*", "gestes*", "jarvis*"]
+exclude = ["tests*", "runtime*", "models*"]
+
+[tool.setuptools.package-data]
+web = ["*.html", "*.js", "*.css"]
+modules = ["*/manifest.json"]

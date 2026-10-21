@@ -45,7 +45,7 @@ def main():
     _run([str(PY), "-c",
           "import shazamio, shazamio_core; print('OK — shazamio prêt')"])
     print("\n✅ Environnement musique prêt.")
-    print('   Dis : « Jarvis, c\'est quoi cette musique ? » (micro) ')
+    print('   Dis : « Red, c\'est quoi cette musique ? » (micro) ')
     print('   ou : « c\'est quoi la musique de cette vidéo ? » (audio système).')
     return 0
 

@@ -17,7 +17,7 @@ from pathlib import Path
 from core.config import reglage
 from core.registre import outil
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 _RACINE = Path(__file__).resolve().parent.parent
 _HOTE = None   # hote qui fonctionne (graph.facebook.com ou graph.instagram.com)
 

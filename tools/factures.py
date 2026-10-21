@@ -1,17 +1,17 @@
-"""Factures (facture.net) — LECTURE SEULE via ton profil Chrome dédié (ChromeJarvis).
+"""Factures (facture.net) — LECTURE SEULE via ton profil Chrome dédié (ChromeRed).
 
-Jarvis ouvre ton tableau de bord facture.net (déjà connecté dans ChromeJarvis) et
+Red ouvre ton tableau de bord facture.net (déjà connecté dans ChromeRed) et
 te le RÉSUME à voix haute : factures impayées, montants dus, relances. Il n'agit
 JAMAIS (aucune création/modif/envoi). Session expirée -> il te le dit clairement,
 pas d'échec silencieux.
 
-SÉCURITÉ (doctrine règle 2 : credentials/sessions côté Jarvis uniquement) :
+SÉCURITÉ (doctrine règle 2 : credentials/sessions côté Red uniquement) :
   - mcp_expose=False : données financières, JAMAIS exposées à Hermes ni au pont.
   - Montants et noms de clients ne sont PAS écrits dans les logs (contenu sensible).
   - Ajoute facture.net à navigateur.domaines_proteges pour verrouiller le "lecture
     seule" même si un jour un autre outil tentait d'y agir.
 
-Config : factures.url = l'URL de ton tableau de bord (copiée depuis ChromeJarvis
+Config : factures.url = l'URL de ton tableau de bord (copiée depuis ChromeRed
 une fois connecté). Voir aussi docs/navigateur.md pour le profil dédié.
 """
 from core.config import reglage
@@ -71,7 +71,7 @@ def factures_statut() -> str:
     if len(texte) < 40:
         return "Le tableau de bord facture.net semble vide ou n'a pas chargé — réessaie."
 
-    # On renvoie le contenu du tableau de bord pour que Jarvis le RÉSUME à voix haute.
+    # On renvoie le contenu du tableau de bord pour que Red le RÉSUME à voix haute.
     # NB : contenu financier sensible -> volontairement PAS loggé ici.
     return ("Voici le tableau de bord facture.net. Résume à voix haute, en une ou "
             "deux phrases : le nombre de factures IMPAYÉES, le montant total dû, et "

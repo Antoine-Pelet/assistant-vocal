@@ -10,7 +10,6 @@ import zipfile
 import truststore
 import yaml
 
-truststore.inject_into_ssl()
 RACINE = Path(__file__).resolve().parent.parent
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 
@@ -37,7 +36,7 @@ def modeles():
                 if not (destination / membre).resolve().is_relative_to(destination):
                     raise ValueError("Chemin invalide dans le modèle Vosk")
             z.extractall(destination)
-    for voix in ("siwis", "tom"):
+    for voix in ("tom",):
         base = f"https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/{voix}/medium/"
         for suffixe in (".onnx", ".onnx.json"):
             nom = f"fr_FR-{voix}-medium{suffixe}"
@@ -50,40 +49,24 @@ def modeles():
 
 
 def configurer():
-    fichier = RACINE / "config.yaml"
-    sauvegarde = RACINE / ".red-install/config-avant-red.yaml"
-    sauvegarde.parent.mkdir(parents=True, exist_ok=True)
-    if fichier.exists() and not sauvegarde.exists():
-        shutil.copy2(fichier, sauvegarde)
-    conf = yaml.safe_load((fichier if fichier.exists() else RACINE / "config.example.yaml").read_text(encoding="utf-8"))
-    valeurs = {
-        "mode": "local", "assistant.nom": "Red", "assistant.mot_activation": "red",
-        "assistant.moteur_reveil": "vosk", "assistant.modele_reveil": "models/vosk-model-small-fr-0.22",
-        "assistant.stabilite_reveil": 3, "assistant.personnalite": "neutre", "assistant.piece_nuit": "",
-        "ollama.hote": "http://127.0.0.1:11434", "ollama.modele": "qwen3.5:2b",
-        "ollama.num_ctx": 4096, "ollama.num_predict": 256, "ollama.think": False,
-        "whisper.modele": "models/whisper-base", "whisper.device": "cpu",
-        "tts.moteur": "piper", "piper.modele": "voix/fr_FR-siwis-medium.onnx",
-        "serveur.actif": True,
-        "scenes.au_demarrage_actif": False, "scenes.spotify": False,
-    }
-    for chemin, valeur in valeurs.items():
-        noeud = conf
-        cles = chemin.split(".")
-        for cle in cles[:-1]:
-            noeud = noeud.setdefault(cle, {})
-        noeud[cles[-1]] = valeur
-    profil = conf.setdefault("tts", {}).setdefault("voix_locale", "siwis_fr")
-    if profil in ("tom_fr", "jarvis_fr"):
-        conf.setdefault("piper", {})["modele"] = "voix/fr_FR-tom-medium.onnx"
-    for fournisseur in ("openai", "anthropic"):
-        if conf.get(fournisseur, {}).get("cle") in ("sk-proj-...", "sk-ant-..."):
-            conf[fournisseur]["cle"] = ""
-    fichier.write_text(yaml.safe_dump(conf, allow_unicode=True, sort_keys=False), encoding="utf-8")
-    print("Configuration locale prête ; original conservé dans .red-install/.", flush=True)
+    sys.path.insert(0,str(RACINE))
+    from core import config
+    fichier=RACINE/'config.yaml'
+    sauvegarde=RACINE/'.red-install/config-avant-red.yaml'
+    sauvegarde.parent.mkdir(parents=True,exist_ok=True)
+    if fichier.exists():
+        if not sauvegarde.exists():shutil.copy2(fichier,sauvegarde)
+        raw=yaml.safe_load(fichier.read_text(encoding='utf8')) or {}
+    else:
+        raw=yaml.safe_load((RACINE/'config.example.yaml').read_text(encoding='utf8'))
+    config.FICHIER=fichier
+    config._CONFIG=config.validate(config.migrate(raw))
+    config.save_migrated()
+    print('Configuration préparée ; réglages existants conservés.',flush=True)
 
 
 if __name__ == "__main__":
+    truststore.inject_into_ssl()
     modeles()
     # Les réglages ne sont appliqués qu'une fois les modèles disponibles.
     configurer()

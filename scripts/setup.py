@@ -1,10 +1,10 @@
-"""Installateur interactif de Jarvis, pour debutants.
+"""Installateur interactif de Red, pour debutants.
 
     python scripts/setup.py
 
 Verifie Python, installe les dependances, demande le mode (cloud/local), recueille
 les cles / verifie Ollama, detecte le materiel, teste les integrations, et finit par
-une phrase de bienvenue prononcee par Jarvis.
+une phrase de bienvenue prononcee par Red.
 
 Concu pour etre lance meme sans dependances installees : il les installe puis se
 relance tout seul dans le bon environnement.
@@ -68,7 +68,7 @@ def installer_dependances():
     dire_titre("Installation des dependances")
     if shutil.which("uv"):
         print("uv detecte -> uv sync (recommande).")
-        subprocess.run(["uv", "sync"], cwd=RACINE, check=False)
+        subprocess.run(["uv", "sync", "--extra", "local", "--extra", "browser"], cwd=RACINE, check=False)
     else:
         print("uv absent -> creation d'un venv + pip install.")
         if not python_venv():
@@ -146,7 +146,7 @@ def config_local(conf):
         subprocess.run(["ollama", "pull", modele], check=False)
     print("\nWhisper (transcription) se telecharge tout seul au 1er lancement.")
     print("Voix Piper (francais) : telecharge un .onnx dans voix/ (voir docs/local.md). "
-          "Sinon Jarvis parlera avec la voix Windows.")
+          "Sinon Red parlera avec la voix Windows.")
 
 
 # --------------------------------------------------------------- materiel + tests
@@ -189,12 +189,12 @@ def test_micro_et_bienvenue():
         # Utilise le meme chemin TTS que l'assistant.
         import importlib
         tts = importlib.import_module("core.tts").tts()
-        res = tts.synthetiser("Bonjour, je suis Jarvis. Installation terminee !")
+        res = tts.synthetiser("Bonjour, je suis Red. Installation terminee !")
         if res is not None:
             import sounddevice as sd
             audio, freq = res
             sd.play(audio, samplerate=freq); sd.wait()
-            print("  Jarvis a parle : installation terminee !")
+            print("  Red a parle : installation terminee !")
         else:
             print("  (voix indisponible ici ; elle marchera au lancement de l'assistant)")
     except Exception as e:
@@ -204,7 +204,7 @@ def test_micro_et_bienvenue():
 # --------------------------------------------------------------- flux
 
 def main():
-    dire_titre("Installation de Jarvis")
+    dire_titre("Installation de Red")
     v = sys.version_info
     if v < (3, 10):
         print(f"Python {v.major}.{v.minor} trop ancien. Installe Python 3.10+ (3.13 recommande).")
@@ -237,7 +237,7 @@ def main():
     test_micro_et_bienvenue()
 
     dire_titre("Termine !")
-    print("Lance Jarvis :  uv run python jarvis14.py   (puis dis « Hey Jarvis »)")
+    print("Lance Red :  uv run --extra local python -m assistant_vocal   (puis dis « Hey Red »)")
     print("Un souci ? Diagnostic :  python scripts/doctor.py")
 
 

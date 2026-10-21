@@ -1,3 +1,5 @@
+> Document historique : pour le lancement, les voix et la refonte actuels, voir [README](../README.md). Les interfaces HUD/overlay/cockpit sont dépréciées et ne sont plus chargées par Red.
+
 # Panneau de configuration web (local)
 
 Un tableau de bord **servi par le serveur web unifié** de Jarvis, mais

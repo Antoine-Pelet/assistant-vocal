@@ -1,3 +1,4 @@
+from security import confirmations
 """Validation, persistance, chiffrement, expiration et intégration réelle du panneau."""
 import copy
 import json
@@ -27,12 +28,12 @@ class MemoireTests(unittest.TestCase):
         self.store.confirmer(h['jeton'])
         self.patch = patch.object(memoire, '_MAGASIN', self.store)
         self.patch.start()
-        self.ancien_pending = registre._EN_ATTENTE
-        registre._EN_ATTENTE = None
+        self.ancien_pending = confirmations._EN_ATTENTE
+        confirmations._EN_ATTENTE = None
 
     def tearDown(self):
         registre.annuler_confirme()
-        registre._EN_ATTENTE = self.ancien_pending
+        confirmations._EN_ATTENTE = self.ancien_pending
         self.patch.stop()
         self.store.fermer()
         self.tmp.cleanup()
@@ -263,7 +264,7 @@ class MemoireTests(unittest.TestCase):
             self.store.debloquer('_historique','historique test')
             self.assertEqual(client.get(base+'/historique').headers['cache-control'], 'no-store')
             self.assertEqual(client.post(base+'/historique',json={}).status_code, 400)
-            self.assertEqual(client.delete(base+'/historique').status_code, 405)
+            self.assertEqual(client.delete(base+'/historique', headers={'content-type':'application/json'}).status_code, 405)
             self.assertEqual(client.get('/panneau/memoire.js').status_code, 200)
 
     def test_api_refuse_csrf_tunnel_et_origines(self):

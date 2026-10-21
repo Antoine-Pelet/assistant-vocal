@@ -93,11 +93,8 @@ def charger_reveil(whisper=None):
             chemin = RACINE / chemin
         mot = mot_activation()
         if whisper is None:
-            from faster_whisper import WhisperModel
-            modele = config.reglage("whisper.modele", "base")
-            if (RACINE / modele).is_dir():
-                modele = str(RACINE / modele)
-            whisper = WhisperModel(modele, device="cpu", compute_type="int8")
+            from services.stt.faster_whisper import model
+            whisper = model()
 
         expression = re.compile(r"\b" + re.escape(mot) + r"\b", re.IGNORECASE)
 

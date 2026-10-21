@@ -93,7 +93,7 @@ class ProfilsTests(unittest.TestCase):
         with patch.object(cb.ChatterboxProvider, 'verifier', return_value={}), \
                 patch('core.config.definir') as ecrire, patch('core.tts.reinitialiser') as reset:
             self.assertTrue(panneau._definir_reglage('tts.profil', 'reddington')['ok'])
-            ecrire.assert_called_once_with('tts.profil', 'reddington')
+            ecrire.assert_called_once_with('tts.profile', 'reddington')
             reset.assert_called_once()
 
     def test_protocole_reel_processus_persistant_et_hors_ligne(self):

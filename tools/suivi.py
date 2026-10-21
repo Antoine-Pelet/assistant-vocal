@@ -1,12 +1,12 @@
 """Suivi de contenus : ton pipeline video, de l'idee a la publication.
 
-Une liste EDITABLE A LA MAIN et par Jarvis (contenus.yaml, non versionne). Chaque
+Une liste EDITABLE A LA MAIN et par Red (contenus.yaml, non versionne). Chaque
 contenu : titre, statut, plateforme, deadline (AAAA-MM-JJ), notes, cree_le.
 
 Le hub d'inspirations/generation vit ailleurs (core/hub_contenu.py, tools/contenu.py) ;
 ici on ne fait QUE le suivi d'avancement.
 
-Doctrine : Jarvis TIENT la liste (ecriture vocale) ; Hermes la LIT seulement, via
+Doctrine : Red TIENT la liste (ecriture vocale) ; Hermes la LIT seulement, via
 l'outil MCP `etat_contenus`, pour croiser "ce qui m'inspire" (vault) avec "ce que
 j'ai en cours" et suggerer les priorites. Jamais d'ecriture cote Hermes.
 """
@@ -20,7 +20,7 @@ from core.config import reglage
 from core.registre import outil
 from core.util import sans_accents
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 _RACINE = Path(__file__).resolve().parent.parent
 
 # Pipeline ordonne : chaque etape d'une video, de sa naissance a sa publication.

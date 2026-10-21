@@ -1,13 +1,13 @@
 """Delegation d'une ou PLUSIEURS taches a Hermes Agent (cerveau delibératif).
 
-Flux : Jarvis envoie la tache a l'API d'Hermes (gateway loopback 8642), repond
+Flux : Red envoie la tache a l'API d'Hermes (gateway loopback 8642), repond
 TOUT DE SUITE "je delegue, je te previens", puis - en tache de fond - recupere le
 resultat, le passe au FILTRE DE CONFIDENTIALITE, et l'annonce a voix haute (resume
 court). Plusieurs delegations peuvent tourner EN PARALLELE, chacune dans sa propre
 session nommee (`session`) -> conversations Hermes independantes.
 
 COMMAND CENTER (N11) : chaque delegation est suivie comme une TACHE (statut, duree,
-tokens) -> visible dans le panneau « Etat » et listable vocalement (« Jarvis, ou en
+tokens) -> visible dans le panneau « Etat » et listable vocalement (« Red, ou en
 sont les taches ? » -> outil taches_hermes). Aucune nouvelle infra : juste de la
 visibilite sur le mecanisme existant.
 
@@ -53,7 +53,7 @@ _MARQUEUR_VALIDATION = "[A VALIDER]"
 
 # Routage deterministe des vrais travaux de creation. On exige a la fois un
 # objet de contenu et une intention de le fabriquer/ameliorer : une simple
-# conversation qui contient « script » ou « video » reste ainsi chez Jarvis.
+# conversation qui contient « script » ou « video » reste ainsi chez Red.
 _OBJETS_CONTENU = {
     "script", "scripts", "hook", "hooks", "accroche", "accroches",
     "storyboard", "storyboards", "contenu", "contenus", "video", "videos",
@@ -405,7 +405,7 @@ def deleguer_en_fond(tache: str, intro: str = "Hermes a termine. ",
     """Delegue une tache a Hermes en tache de fond (session nommee optionnelle),
     la SUIT comme une tache (registre), journalise le resultat complet, et annonce a
     voix haute un resume court (filtre confidentialite). Renvoie tout de suite
-    l'accuse pour Jarvis. Reutilise par deleguer_a_hermes et les outils de contenu."""
+    l'accuse pour Red. Reutilise par deleguer_a_hermes et les outils de contenu."""
     t = _ajouter_tache(session, tache)
     session_effective = t["session"]
 

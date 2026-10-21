@@ -30,4 +30,4 @@ if ($LASTEXITCODE -ne 0) { throw 'Installation Chatterbox impossible.' }
 & $redPython -u scripts\preparer_chatterbox.py
 if ($LASTEXITCODE -ne 0) { throw 'Téléchargement des modèles incomplet.' }
 Write-Host 'Chatterbox est installé. Ajoute tes WAV dans voices/ puis configure tts.moteur et tts.profil.'
-Write-Host 'Test : .venv-red\Scripts\python.exe scripts\tester_chatterbox.py --profil jarvis'
+Write-Host 'Test : .venv-red\Scripts\python.exe scripts\tester_chatterbox.py --profil red'

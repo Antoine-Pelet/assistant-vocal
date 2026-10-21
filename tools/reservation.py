@@ -26,7 +26,7 @@ from core.config import reglage
 from core import registre
 from core.registre import outil
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 
 # --- etat du navigateur persistant (garde entre les appels/tours) ------------
 _PW = None      # instance Playwright

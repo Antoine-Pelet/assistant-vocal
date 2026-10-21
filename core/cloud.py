@@ -1,4 +1,4 @@
-"""Client cloud commun a Jarvis.
+"""Client cloud commun a Red.
 
 OpenAI (Responses API) et Anthropic/Claude sont les deux fournisseurs cloud
 intégrés. Le choix explicite vit dans ``cloud.fournisseur`` ; la détection des
@@ -15,7 +15,7 @@ import logging
 
 from core.config import reglage
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 
 
 def fournisseur() -> str:

@@ -3,7 +3,7 @@ import logging
 
 from core.registre import outil
 
-LOG = logging.getLogger("jarvis.ecran")
+LOG = logging.getLogger("assistant.ecran")
 
 # Côté le plus large envoyé au modèle de vision.
 LARGEUR_CAPTURE = 1568

@@ -1,10 +1,10 @@
 """Routage à 3 modes + garde-fous budgétaires — l'implémentation de la doctrine
-(Hermes pense, Jarvis détient les clés/le corps ; le routage EST le partage).
+(Hermes pense, Red détient les clés/le corps ; le routage EST le partage).
 
 Modes (config.yaml `mode`) :
   - "local"   : tout en local (Ollama + Piper), rien ne sort.
   - "hybride" : DÉFAUT. Réflexes (domotique, timers, questions courtes) + vision/
-                navigateur/résa → Jarvis cloud (modèle économique). Les tâches de
+                navigateur/résa → Red cloud (modèle économique). Les tâches de
                 FOND (analyses, recherches) sont confiées à Hermes (via l'outil
                 deleguer_a_hermes, que le modèle appelle de lui-même).
   - "qualite" : cloud partout, modèle le plus fort.
@@ -20,7 +20,7 @@ import subprocess
 
 from core.config import definir, reglage
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 _MODES = ("local", "hybride", "qualite")
 
 

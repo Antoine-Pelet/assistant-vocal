@@ -2,14 +2,14 @@
 
 Frontiere vie privee : ce process est le SEUL a voir l'image de la webcam. Aucune
 image n'est stockee, loggee ni transmise — seuls des *labels de gestes* ("poing",
-"mode_fenetres"...) partent vers Jarvis en loopback local (POST /api/gestes, avec
+"mode_fenetres"...) partent vers Red en loopback local (POST /api/gestes, avec
 un token). MediaPipe (nouvelle API Tasks) tourne en CPU (XNNPACK).
 
-Lance par core/gestes.py (Jarvis 3.13). Config passee via l'env GESTES_CONF (JSON).
+Lance par core/gestes.py (Red 3.13). Config passee via l'env GESTES_CONF (JSON).
 Mode calibration : `--calibrate` (affiche la camera + landmarks + seuils reglables).
 
 Vocabulaire v2 (gestes FIABLES, tenus) :
-  main ouverte immobile -> pause ; pouce leve -> lecture ; poing -> couper Jarvis
+  main ouverte immobile -> pause ; pouce leve -> lecture ; poing -> couper Red
   2 doigts -> mode fenetres, puis main ouverte + swipe horizontal/vertical
   3 doigts -> mode audio, puis main ouverte + swipe horizontal/vertical
   index seul tenu -> mode souris, puis ce meme index pilote le pointeur
@@ -710,7 +710,7 @@ def _envoyer(url, token, geste):
         requests.post(url, json={"geste": geste},
                       headers={"X-Gestes-Token": token}, timeout=1.5)
     except Exception:
-        pass  # Jarvis occupe / injoignable : on ignore, jamais de blocage
+        pass  # Red occupe / injoignable : on ignore, jamais de blocage
 
 
 def _envoyer_pointeur(url, token, evenement):
@@ -848,8 +848,8 @@ def _afficher_calibration(frame, mains, fsm, historique_gestes, maintenant,
     for i, ligne in enumerate(infos):
         cv2.putText(frame, ligne, (10, 24 + i * 22), cv2.FONT_HERSHEY_SIMPLEX,
                     0.55, (0, 255, 255), 1, cv2.LINE_AA)
-    titre = ("Jarvis — démo gestes (actions PC actives)" if demo
-             else "Jarvis — calibration gestes")
+    titre = ("Red — démo gestes (actions PC actives)" if demo
+             else "Red — calibration gestes")
     cv2.imshow(titre, frame)
     if demo and not getattr(fsm, "_fenetre_demo_epinglee", False):
         try:

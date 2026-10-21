@@ -1,7 +1,7 @@
 """Appels telephoniques via Twilio — V1 : appel a message + reponse transcrite.
 
 call_with_message(numero, message) : Twilio appelle, se presente honnetement,
-joue le message, enregistre la reponse ; Jarvis la recupere (API REST, sans
+joue le message, enregistre la reponse ; Red la recupere (API REST, sans
 webhook public), la transcrit avec Whisper, et t'en fait un resume.
 
 Cas d'usage : "appelle le resto et demande s'ils sont ouverts ce soir".
@@ -25,7 +25,7 @@ from pathlib import Path
 from core.config import reglage
 from core.registre import outil
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 _RACINE = Path(__file__).resolve().parent.parent
 
 # Transcripteur injecte par jarvis14 (reutilise le Whisper deja charge).

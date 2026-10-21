@@ -22,7 +22,7 @@ def main():
     from core import config
     from core.chatterbox_tts import ChatterboxProvider
     conf = config._charger()
-    profil = args.profil or conf.get("tts", {}).get("profil", "jarvis")
+    profil = args.profil or config.reglage("tts.profile", "red")
     if args.reference:
         voix = conf.setdefault("voices", {}).setdefault(profil, {})
         voix["reference"] = str(Path(args.reference).resolve())
@@ -30,6 +30,7 @@ def main():
         conf.setdefault("chatterbox", {})["device"] = args.device
     if args.timeout:
         conf.setdefault("chatterbox", {})["timeout"] = args.timeout
+        conf["chatterbox"]["startup_timeout"] = args.timeout
     provider = ChatterboxProvider(profil=profil)
     debut = time.perf_counter()
     try:

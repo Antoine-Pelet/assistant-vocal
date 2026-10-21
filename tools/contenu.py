@@ -1,6 +1,6 @@
-"""Outils de contenu : recherche d'inspiration (Jarvis) + generation (deleguee a Hermes).
+"""Outils de contenu : recherche d'inspiration (Red) + generation (deleguee a Hermes).
 
-Doctrine : Jarvis = interface vocale rapide ; Hermes = moteur d'analyse/generation.
+Doctrine : Red = interface vocale rapide ; Hermes = moteur d'analyse/generation.
 Hermes lit le Vault + le projet Scripts en LECTURE SEULE dans son conteneur Docker
 (cf. HERMES_NOTES.md §17) ; il n'ecrit que dans drafts/.
 """
@@ -41,7 +41,7 @@ def _bash() -> str:
         "required": ["sujet"]},
 )
 def chercher_inspiration(sujet):
-    """Recherche ponderee dans le Vault (cote Jarvis, rapide)."""
+    """Recherche ponderee dans le Vault (cote Red, rapide)."""
     resultats = hub_contenu.chercher(sujet, n=6)
     if not resultats:
         return f"Rien trouve sur « {sujet} » dans le vault."

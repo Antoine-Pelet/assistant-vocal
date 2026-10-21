@@ -130,27 +130,20 @@
     </div>
 
     <div class="card"><h2>Voix de Red</h2>
-      <div class="fld"><div class="lab"><b>Voix Piper</b><small>Français, hors ligne. Le choix s'applique à la prochaine réponse.</small></div>
-        <select class="txt" id="sel-voix-locale" aria-label="Voix locale" onchange="setReglage('tts.voix_locale',this.value,this)"></select>
+      <div class="fld"><div class="lab"><b>Secours Piper</b><small>Français, hors ligne. Ce choix ne modifie pas le moteur principal.</small></div>
+        <select class="txt" id="sel-voix-locale" aria-label="Voix locale" onchange="setReglage('piper.profile',this.value,this)"></select>
         <button class="act" id="ecouter-voix" onclick="apercuVoix()">Écouter</button>
       </div>
       <p class="muted" id="description-voix"></p>
       <audio id="apercu-audio" controls hidden style="width:100%;max-width:480px"></audio>
       <div id="apercu-msg" class="msg" role="status"></div>
       <div class="fld"><div class="lab"><b>Moteur vocal</b>
-        <small>Auto choisit ElevenLabs en cloud et Piper en local. Le mode local reste intégralement local.</small></div>
-        <div class="seg" id="seg-tts">
-          <button data-v="auto">Auto</button>
-          <button data-v="elevenlabs">ElevenLabs</button>
-          <button data-v="piper">Piper</button>
-          <button data-v="chatterbox">Chatterbox</button>
-          <button data-v="kokoro">Kokoro</button>
-          <button data-v="windows">Windows</button>
-        </div>
+        <small>Chatterbox pour la voix personnalisée ; Piper puis Windows comme secours local.</small></div>
+        <div class="seg" id="seg-tts"></div>
       </div>
       <div class="fld"><div class="lab"><b>Profil Chatterbox</b>
         <small>Voix personnalisée locale. Ajoute le WAV dans voices/ et son profil dans config.yaml, puis choisis le moteur Chatterbox.</small></div>
-        <select class="txt" id="sel-chatterbox" aria-label="Profil Chatterbox" onchange="setReglage('tts.profil',this.value,this)"></select>
+        <select class="txt" id="sel-chatterbox" aria-label="Profil Chatterbox" onchange="setReglage('tts.profile',this.value,this)"></select>
       </div>
       <div class="fld"><div class="lab"><b>Voix ElevenLabs</b>
         <small id="elevenlabs-etat">Vérification du compte…</small></div>
@@ -169,7 +162,7 @@
 
     <div class="card"><h2>Voix &amp; écoute</h2>
       <div class="fld"><div class="lab"><b>Personnalité</b><small>Le ton des réponses.</small></div>
-        <select class="txt" id="sel-perso" onchange="setReglage('assistant.personnalite',this.value,this)"></select></div>
+        <select class="txt" id="sel-perso" onchange="setReglage('assistant.persona',this.value,this)"></select></div>
       <div class="fld"><div class="lab"><b>Durée d'écoute enchaînée</b>
         <small>Secondes où Red continue d'écouter après une réponse (sans redire le mot d'activation).</small></div>
         <input type="range" id="rng-suite" min="0" max="30" step="1"
@@ -232,7 +225,7 @@
     <div class="feature-grid" id="liste-fonctions" aria-live="polite"></div>
   </section>
   <section id="etat" class="tab">
-    <div class="card"><h2>Chaîne Red ↔ Hermes</h2>
+    <div class="card"><h2>État des services</h2>
       <div id="chaine"></div>
       <div style="margin-top:12px" class="row">
         <button class="act ghost" onclick="chargerEtat()">Rafraîchir</button>
@@ -257,7 +250,7 @@
     <div id="n3" class="lock"></div>
     <div class="card"><h2>Périmètre en un coup d'œil</h2><div id="perm-kpi" class="row"></div>
       <div id="perm-note" class="muted" style="margin-top:10px"></div></div>
-    <div class="card"><h2>Accès fichiers d'Hermes (Docker, montages)</h2><div id="mounts"></div></div>
+    <div id="mounts" hidden></div>
     <div class="card"><h2>Outils &amp; garde-fous</h2>
       <div class="muted" style="margin-bottom:8px;font-size:12px">
         <span class="badge">N1 sûr</span> local + iPhone ·
@@ -331,7 +324,8 @@
 
 <script>
 const $=(s,e=document)=>e.querySelector(s), $$=(s,e=document)=>[...e.querySelectorAll(s)];
-const api=async(u,o)=>{try{const r=await fetch(u,o);return await r.json()}catch(e){return{ok:false,message:'Red est injoignable. Relance lancer_red.bat puis actualise cette page.'}}};
+const api=async(u,o)=>{try{const r=await fetch(u,o);if(r.status===401){document.querySelector('main')?.replaceChildren();location.reload();return {ok:false};}return await r.json()}catch(e){return{ok:false,message:'Red est injoignable. Relance lancer_red.bat puis actualise cette page.'}}};
+let optionalUi={hermes:false,cloud:false};
 const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const post=(u,b)=>api(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});
 const bYes=(t)=>`<span class="badge on">${t}</span>`, bNo=(t)=>`<span class="badge off">${t}</span>`;
@@ -339,7 +333,7 @@ const bYes=(t)=>`<span class="badge on">${t}</span>`, bNo=(t)=>`<span class="bad
 $$('nav button').forEach(b=>b.onclick=()=>{
   $$('nav button').forEach(x=>x.classList.toggle('on',x===b));
   $$('.tab').forEach(t=>t.classList.toggle('on',t.id===b.dataset.t));
-  if(b.dataset.t==='etat'){chargerEtat();chargerBudget();chargerActivite();chargerTaches();} if(b.dataset.t==='perms')chargerPerms();
+  if(b.dataset.t==='etat'){chargerEtat();if(optionalUi.cloud)chargerBudget();if(optionalUi.hermes){chargerActivite();chargerTaches();}} if(b.dataset.t==='perms')chargerPerms();
   if(b.dataset.t==='reglages')chargerReglages();
   if(b.dataset.t==='fonctions')chargerFonctions();
   if(b.dataset.t==='modeles')chargerModeles();
@@ -358,6 +352,7 @@ async function chargerModeles(){
     : m.gpu.map(g=>`<div class="kpi"><div class="v">${g.nom.replace('NVIDIA ','')}</div><div class="l">GPU</div></div>`).join('')
       + `<div class="kpi"><div class="v">${m.vram_total_go} Go</div><div class="l">VRAM totale</div></div>`
       + `<div class="kpi"><div class="v">${m.vram_exploitable_go} Go</div><div class="l">exploitable (LLM)</div></div>`;
+  $('#openai-modeles').closest('.card').hidden=d.backend_actif==='local';
   // actifs par backend
   const A=d.actifs, be=d.backend_actif;
   const ligneActif=(cle,label,val,editable)=>{
@@ -478,15 +473,15 @@ async function reconnecter(){
 async function chargerBudget(){
   const d=await api('/api/panneau/budget');
   const lignes=(obj,periode)=>Object.entries(obj||{}).map(([f,v])=>
-    `<tr><td>${esc(f.replace(/\bJarvis\b/gi,'Red'))}</td><td class="muted">${periode}</td><td class="mono">${fmt(v.tin)}→${fmt(v.tout)}</td>
+    `<tr><td>${esc(f)}</td><td class="muted">${periode}</td><td class="mono">${fmt(v.tin)}→${fmt(v.tout)}</td>
      <td>${v.appels} appels</td><td><b>${eur(v.cout)}</b></td></tr>`).join('');
   let html='<table><thead><tr><th>Fournisseur</th><th>Période</th><th>Tokens (in→out)</th><th></th><th>Coût est.</th></tr></thead><tbody>';
-  html+=lignes(d.jarvis.jour,'aujourd’hui')||'';
-  html+=lignes(d.jarvis.mois,'ce mois')||'';
+  html+=lignes(d.assistant.jour,'aujourd’hui')||'';
+  html+=lignes(d.assistant.mois,'ce mois')||'';
   if(d.twilio) html+=`<tr><td>Twilio (appels)</td><td class="muted">ce mois</td><td class="mono">${d.twilio.appels||0} appels / ${d.twilio.minutes||0} min</td><td></td><td><b>${eur(d.twilio.cout)}</b></td></tr>`;
   html+='<tr id="budget-hermes"><td>Hermes</td><td class="muted">—</td><td class="mono">…</td><td></td><td>—</td></tr>';
   html+='</tbody></table>';
-  if(!Object.keys(d.jarvis.jour||{}).length && !Object.keys(d.jarvis.mois||{}).length && !d.twilio)
+  if(!Object.keys(d.assistant.jour||{}).length && !Object.keys(d.assistant.mois||{}).length && !d.twilio)
     html='<span class="muted">Aucune conso enregistrée pour l’instant (redémarre Red pour activer le comptage).</span>'+html;
   $('#budget').innerHTML=html;
 }
@@ -530,10 +525,14 @@ async function chargerActivite(){
 }
 
 /* ---------- REGLAGES ---------- */
-const PERSO_LABEL={jarvis_sarcastique:'Red (sarcastique)',neutre:'Neutre',concis:'Concis'};
 async function chargerReglages(){
   const d=await api('/api/panneau/reglages');
   if(d.ok===false){$('#audio-msg').textContent=d.message;return;}
+  optionalUi=d.optional_ui||{};
+  for(const id of ['taches','activite'])$('#'+id).closest('.card').hidden=!optionalUi.hermes;
+  $('#budget').closest('.card').hidden=!optionalUi.cloud;
+  $('#openai-modeles').closest('.card').hidden=!optionalUi.cloud;
+  $('button[onclick="reconnecter()"]').hidden=!optionalUi.hermes;
   // mode
   const mode=d.mode==='cloud'?'hybride':d.mode;
   $$('#seg-mode button').forEach(x=>{
@@ -562,9 +561,14 @@ async function chargerReglages(){
   // moteur vocal + voix ElevenLabs
   $$('#seg-tts button').forEach(x=>{
     x.classList.toggle('on',x.dataset.v===(d.tts_moteur||'auto'));
-    x.onclick=()=>setReglage('tts.moteur',x.dataset.v,x);
+    x.onclick=()=>setReglage('tts.engine',x.dataset.v,x);
   });
-  $('#sel-chatterbox').innerHTML=(d.chatterbox_profils||[]).map(p=>opt(p,p==='jarvis'?'Red':p,p===d.chatterbox_profil)).join('')||opt('','Aucun profil configuré',true);
+  $('#seg-tts').innerHTML=(d.tts_engines||[]).filter(e=>e.installed&&e.compatible).map(e=>`<button data-v="${esc(e.id)}" class="${e.active?'on':''}">${esc(e.name)}</button>`).join('');
+  $('#seg-tts').querySelectorAll('button').forEach(b=>b.onclick=()=>setReglage('tts.engine',b.dataset.v,b));
+  $('#sel-chatterbox').closest('.fld').hidden=d.tts_moteur!=='chatterbox';
+  $('#sel-eleven-voix').closest('.fld').hidden=d.tts_moteur!=='elevenlabs';
+  $('#sel-eleven-modele').closest('.fld').hidden=d.tts_moteur!=='elevenlabs';
+  $('#sel-chatterbox').innerHTML=(d.chatterbox_profils||[]).map(p=>opt(p.id,p.name+(p.installed?'':' · indisponible'),p.id===d.chatterbox_profil)).join('')||opt('','Aucun profil configuré',true);
   const el=d.elevenlabs||{};
   $('#elevenlabs-etat').innerHTML=!el.configure
     ? '<span style="color:var(--ko)">Clé absente dans config.yaml.</span>'
@@ -575,7 +579,7 @@ async function chargerReglages(){
   $('#sel-eleven-voix').innerHTML=voix||opt('','Aucune voix disponible',true);
   $('#sel-eleven-modele').value=d.elevenlabs_modele||'eleven_flash_v2_5';
   // personnalite
-  $('#sel-perso').innerHTML=(d.personnalites||[]).map(p=>opt(p,PERSO_LABEL[p]||p,p===d.personnalite)).join('');
+  $('#sel-perso').innerHTML=(d.personnalites||[]).map(p=>opt(p.id,p.name,p.id===d.personnalite)).join('');
   // sliders
   $('#sel-veille').value=String(d.confirmer_veille);
   $('#sel-accuse').value=String(d.accuse_reception);
@@ -587,11 +591,11 @@ async function chargerReglages(){
 }
 async function setReglage(cle,valeur,cibleOuBtn){
   const r=await post('/api/panneau/reglage',{cle,valeur});
-  if(r.ok&&cle==='tts.moteur') $$('#seg-tts button').forEach(x=>x.classList.toggle('on',x.dataset.v===valeur));
+  if(r.ok&&cle==='tts.engine') $$('#seg-tts button').forEach(x=>x.classList.toggle('on',x.dataset.v===valeur));
   const zone={'mode':'#audio-msg','audio.micro':'#audio-msg','audio.haut_parleur':'#audio-msg',
     'assistant.confirmer_veille':'#voix-msg','assistant.accuse_reception':'#voix-msg','assistant.silence_fin':'#voix-msg','assistant.attente_debut':'#voix-msg','assistant.attente_confirmation':'#voix-msg',
-    'assistant.personnalite':'#voix-msg','assistant.duree_suite':'#voix-msg',
-    'assistant.seuil_reveil':'#wake-msg','assistant.stabilite_reveil':'#wake-msg','tts.moteur':'#tts-msg','tts.profil':'#tts-msg','tts.voix_locale':'#tts-msg',
+    'assistant.persona':'#voix-msg','assistant.duree_suite':'#voix-msg',
+    'assistant.seuil_reveil':'#wake-msg','assistant.stabilite_reveil':'#wake-msg','tts.engine':'#tts-msg','tts.profile':'#tts-msg','piper.profile':'#tts-msg',
     'elevenlabs.voix':'#tts-msg','elevenlabs.modele':'#tts-msg'}[cle];
   const el=zone?$(zone):null;
   if(el) el.innerHTML=`<span style="color:var(--${r.ok?'ok':'ko'})">${esc(r.message||'')}</span>`;

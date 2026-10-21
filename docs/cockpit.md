@@ -1,3 +1,5 @@
+> Document historique : pour le lancement, les voix et la refonte actuels, voir [README](../README.md). Les interfaces HUD/overlay/cockpit sont dépréciées et ne sont plus chargées par Red.
+
 # Cockpit (tableau de bord perso)
 
 Une **app web locale** servie par le serveur unifié de Jarvis, ouverte en **fenêtre

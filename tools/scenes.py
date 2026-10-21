@@ -6,8 +6,8 @@ réflexe, en local (doctrine règle 3).
 
 - au_demarrage : jouée au 1er lancement du jour (Spotify + lumières selon l'heure
   + accueil vocal court). Si un brief Hermes du matin est dispo, on le VOCALISE à
-  la place (Jarvis est la bouche, Hermes le rédacteur — doctrine règle 1).
-- extinction : « Jarvis, on éteint tout » -> musique/ lumières off, pause OBS si
+  la place (Red est la bouche, Hermes le rédacteur — doctrine règle 1).
+- extinction : « Red, on éteint tout » -> musique/ lumières off, pause OBS si
   actif, puis PROPOSE d'éteindre le PC (l'extinction PC reste N3, confirmée à part).
 
 Réglages : config.yaml section `scenes`. Non exposé au MCP (physique/local).
@@ -74,7 +74,7 @@ def _lumieres_du_moment():
 def _brief_hermes():
     """Renvoie le texte du brief Hermes du matin s'il est disponible ET du jour,
     sinon None. Le brief est écrit par le cron Hermes (chantier rétrofit) dans le
-    fichier scenes.brief_fichier. Doctrine : Hermes rédige, Jarvis vocalise."""
+    fichier scenes.brief_fichier. Doctrine : Hermes rédige, Red vocalise."""
     chemin = reglage("scenes.brief_fichier", "")
     if not chemin:
         return None

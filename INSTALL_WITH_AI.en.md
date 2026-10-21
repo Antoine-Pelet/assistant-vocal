@@ -1,3 +1,5 @@
+> Document historique : pour le lancement, les voix et la refonte actuels, voir [README](README.md). Les interfaces HUD/overlay/cockpit sont dépréciées et ne sont plus chargées par Red.
+
 # 🆘 Install Jarvis with an AI's help (complete beginner)
 
 *[Version française](INSTALL_WITH_AI.md)*

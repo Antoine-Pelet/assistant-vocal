@@ -1,7 +1,7 @@
-"""Pont vers la synthese vocale.
+"""DEPRECATED : raccordement des anciens tools à la sortie audio locale.
 
-Permet aux outils (ex. le minuteur) de parler sans dependre de jarvis14.py,
-ce qui evite les imports circulaires. jarvis14 enregistre sa fonction `dire`
+Permet aux outils (ex. le minuteur) de parler sans dependre de audio.local,
+ce qui evite les imports circulaires. audio.local enregistre sa fonction `dire`
 via definir_parleur() au demarrage.
 """
 _parleur = None

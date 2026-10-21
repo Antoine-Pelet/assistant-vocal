@@ -4,7 +4,7 @@ contrôle LOCAL, temps réel, aucun cloud, aucune app.
 L'amaran se pilote en Bluetooth (mesh Sidus Link), pas depuis un PC directement.
 Un petit **ESP32 (~5 €)** flashé avec le firmware communautaire
 `wesbos/amaran-BLE-control` rejoint le mesh et expose une **API HTTP locale**
-(POST /lights/all/on, /brightness, /cct, /hsi). Jarvis lui envoie juste des requêtes.
+(POST /lights/all/on, /brightness, /cct, /hsi). Red lui envoie juste des requêtes.
 Renseigne l'URL de l'ESP32 dans config.yaml (amaran.url). Voir docs/lumieres_video.md.
 
 N1 (lumière, réversible, local). Non exposé au MCP (physique, reste chez moi).

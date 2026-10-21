@@ -3,7 +3,7 @@
 apps: { "borderlands": "C:\\...\\game.exe", "spotify": "spotify:",
         "un_jeu_steam": "steam://rungameid/XXXX" }
 
-Si l'app demandee est inconnue, Jarvis propose de l'ajouter ; l'ajout passe par
+Si l'app demandee est inconnue, Red propose de l'ajouter ; l'ajout passe par
 ajouter_app (confirmation requise) qui ecrit dans config.yaml.
 """
 import os

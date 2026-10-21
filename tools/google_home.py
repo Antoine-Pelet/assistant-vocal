@@ -7,7 +7,7 @@ fournit **pas** de contrôle générique on/off ni de luminosité pour des lumi�
 tierces liées à Google Home — aucun trait `OnOff`/`Brightness` côté SDM. Il n'existe
 à ce jour **aucune API serveur/Python officielle** pour piloter des lumières Google
 Home. Pour des lumières : préfère l'intégration **native** (les Philips Hue sont déjà
-gérées par Jarvis) ou un pont **Home Assistant**.
+gérées par Red) ou un pont **Home Assistant**.
 
 Ce module fournit donc, de façon honnête :
   - google_home_etat()          -> liste des appareils + état (FIABLE, officiel). N1
@@ -29,7 +29,7 @@ from core.config import reglage
 from core.registre import outil
 from core.util import sans_accents
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 _BASE = "https://smartdevicemanagement.googleapis.com/v1"
 
 

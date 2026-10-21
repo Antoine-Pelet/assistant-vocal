@@ -1,4 +1,4 @@
-"""Spotify : ajoute la musique reconnue à une playlist « Jarvis Finds ».
+"""Spotify : ajoute la musique reconnue à une playlist « Red Finds ».
 
 « ajoute-la à ma playlist » (la dernière musique reconnue), et option d'ajout
 AUTOMATIQUE à chaque reconnaissance (spotify.auto_ajout). Auth OAuth : login une
@@ -93,7 +93,7 @@ def _playlist_id(nom=None, creer=True):
     conseille) -> renvoie None pour eviter une playlist creee par erreur de dictee."""
     global _PLAYLIST_ID
     par_defaut = nom is None
-    cible = nom or reglage("spotify.playlist", "Jarvis Finds")
+    cible = nom or reglage("spotify.playlist", "Red Finds")
     if par_defaut and _PLAYLIST_ID:
         return _PLAYLIST_ID
     with _VERROU:
@@ -184,7 +184,7 @@ def _nom_appareil_piece(piece):
     for nom_piece, nom_appareil in appareils.items():
         if sans_accents(str(nom_piece)).lower() == cible and nom_appareil:
             return str(nom_appareil).strip()
-    return f"Jarvis {piece.title()}"
+    return f"Red {piece.title()}"
 
 
 def _appareil_piece(piece):
@@ -266,13 +266,13 @@ def _ajouter_titre(titre, artiste, playlist=None):
     if not pid:
         return (f"Je n'ai pas trouvé la playlist « {demande} » chez toi. "
                 "Crée-la d'abord dans Spotify, ou dis-la sans préciser (j'utilise "
-                f"{reglage('spotify.playlist', 'Jarvis Finds')}).")
+                f"{reglage('spotify.playlist', 'Red Finds')}).")
     if _deja_present(pid, uri):
         return f"« {titre} » est déjà dans la playlist."
     r = requests.post(f"{_API}/playlists/{pid}/tracks", headers=_h(),
                       data=json.dumps({"uris": [uri]}), timeout=15)
     r.raise_for_status()
-    nom = demande or reglage("spotify.playlist", "Jarvis Finds")
+    nom = demande or reglage("spotify.playlist", "Red Finds")
     return f"Ajoutée à {nom} : {titre}" + (f" de {artiste}." if artiste else ".")
 
 
@@ -455,7 +455,7 @@ def controler_spotify(action: str, piece: str) -> str:
 @outil(
     nom="ajouter_a_playlist",
     description="Ajoute la DERNIÈRE musique reconnue (ou un titre donné) à une playlist "
-                "Spotify. Par défaut « Jarvis Finds » ; précise une playlist avec le "
+                "Spotify. Par défaut « Red Finds » ; précise une playlist avec le "
                 "paramètre playlist. Pour « ajoute-la à ma playlist », « mets cette "
                 "chanson dans ma playlist Chill », « ajoute ça à Spotify ».",
     parametres={

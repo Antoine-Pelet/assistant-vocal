@@ -1,5 +1,5 @@
 """Contrôle vocal de l'overlay de réponses (la mini-fenêtre qui affiche à l'écrit
-ce que Jarvis dit). JARVIS PUR : affichage local. Outils N1, non exposés au MCP
+ce que Red dit). JARVIS PUR : affichage local. Outils N1, non exposés au MCP
 (l'overlay est sur MON écran, pas pilotable à distance ni par Hermes).
 
 Voir docs/overlay.md.
@@ -7,10 +7,7 @@ Voir docs/overlay.md.
 from core.config import definir, reglage
 from core.registre import outil
 
-try:
-    import overlay as _overlay
-except Exception:
-    _overlay = None
+_overlay = None  # Interface legacy retirée du fonctionnement vocal.
 
 
 def _indispo():

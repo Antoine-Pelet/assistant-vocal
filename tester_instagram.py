@@ -1,7 +1,7 @@
 """Test rapide de l'acces Instagram (sans la voix), pour un ou plusieurs comptes.
 
 Lance-le avec :  uv run python tester_instagram.py
-Verifie chaque token, affiche abonnes + vues d'une video, puis le resume Jarvis.
+Verifie chaque token, affiche abonnes + vues d'une video, puis le resume Red.
 """
 from core import registre
 registre.charger_outils()
@@ -34,5 +34,5 @@ for c in comptes:
     except Exception as e:
         print(f"  Insights indisponibles : {e}")
 
-print("\nResume Jarvis (tous comptes) :")
+print("\nResume Red (tous comptes) :")
 print(" ", ig.instagram_resume())

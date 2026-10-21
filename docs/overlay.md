@@ -1,3 +1,5 @@
+> Document historique : pour le lancement, les voix et la refonte actuels, voir [README](../README.md). Les interfaces HUD/overlay/cockpit sont dépréciées et ne sont plus chargées par Red.
+
 # Overlay de réponses (fenêtre flottante)
 
 Une mini-fenêtre discrète qui affiche **à l'écrit ce que Jarvis dit**, en complément

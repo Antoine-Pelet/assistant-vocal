@@ -1,4 +1,4 @@
-"""Outil pour changer la personnalite de Jarvis a la voix."""
+"""Outil pour changer la personnalite de Red a la voix."""
 from core import config, personnalite
 from core.registre import outil
 
@@ -25,5 +25,5 @@ def changer_personnalite(mode: str) -> str:
     if nom not in personnalite.PRESETS:
         return "Quelle personnalité souhaites-tu utiliser ?"
     config.definir("assistant.personnalite", nom)
-    libelles = {"jarvis_sarcastique": "Red", "neutre": "neutre", "concis": "concis"}
+    libelles = {"red": "Red", "neutre": "neutre", "concis": "concis"}
     return f"Mode {libelles.get(nom, nom)} active."

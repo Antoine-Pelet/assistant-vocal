@@ -1,3 +1,5 @@
+> Document historique : pour le lancement, les voix et la refonte actuels, voir [README](../README.md). Les interfaces HUD/overlay/cockpit sont dépréciées et ne sont plus chargées par Red.
+
 # Modes local, hybride et qualité
 
 Jarvis propose trois modes, choisis par une seule ligne dans `config.yaml` :

@@ -17,7 +17,7 @@ from core.registre import outil
 from core.util import sans_accents
 from tools.agenda import _periode, _jour_fr
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 
 _CACHE_T = 0.0
 _CACHE_EV = None          # liste de (debut_dt, type, titre)

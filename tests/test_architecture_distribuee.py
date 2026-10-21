@@ -1,3 +1,4 @@
+from security import confirmations
 """Contrats locaux et isolation de contexte, sans appareil, micro ou serveur réseau."""
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -14,7 +15,9 @@ from core.evenements import Event, LocalEventBus
 from core.maison import devices, room_for_satellite
 from integrations import hue
 from services import AudioData
-from services.existing import ExistingSTT, ExistingTTS, ExistingLLM
+from services.stt.faster_whisper import WhisperService
+from services.tts.base import ProviderTTS
+from services.llm.models import ProviderLLM
 from tools import lumieres
 
 
@@ -216,31 +219,31 @@ class ServiceTests(unittest.TestCase):
             captured.append(samples)
             self.assertEqual(current().room_id,'bureau')
             return [SimpleNamespace(text='bonjour')],None
-        result=ExistingSTT(SimpleNamespace(transcribe=transcribe)).transcribe(AudioData(b'\xff\x7f'*8000),contexte('bureau'))
+        result=WhisperService(SimpleNamespace(transcribe=transcribe)).transcribe(AudioData(b'\xff\x7f'*8000),contexte('bureau'))
         self.assertEqual(result,'bonjour');self.assertFalse(captured[0].any())
 
     def test_tts_returns_pcm_without_playing_on_server(self):
         p=SimpleNamespace(synthetiser=lambda text:([1,-2,3],24000))
-        audio=ExistingTTS(p).synthesize('bonjour',contexte('bureau'))
+        audio=ProviderTTS.synthesize(p,'bonjour',contexte('bureau'))
         self.assertEqual(audio,AudioData(b'\x01\x00\xfe\xff\x03\x00',24000))
-        self.assertIsNone(ExistingTTS(SimpleNamespace(synthetiser=lambda _:None)).synthesize('a',contexte('bureau')))
+        self.assertIsNone(ProviderTTS.synthesize(SimpleNamespace(synthetiser=lambda _:None),'a',contexte('bureau')))
 
     def test_llm_contract_preserves_provider_and_scopes_context(self):
         before=current();provider=Mock()
         provider.repondre.side_effect=lambda *args: current()
-        self.assertEqual(ExistingLLM(provider).respond('s',[],[],contexte('bureau')),contexte('bureau'))
+        self.assertEqual(ProviderLLM.respond(provider,'s',[],[],contexte('bureau')),contexte('bureau'))
         self.assertEqual(current(),before)
 
     def test_invalid_audio_format_is_rejected(self):
         with self.assertRaises(ValueError):AudioData(b'\x00')
         with self.assertRaises(ValueError):AudioData(b'',sample_rate=0)
-        with self.assertRaises(ValueError):ExistingSTT(Mock()).transcribe(AudioData(b'',48000),current())
+        with self.assertRaises(ValueError):WhisperService(Mock()).transcribe(AudioData(b'',48000),current())
 
 
 class ConfirmationContextTests(unittest.TestCase):
     def test_one_session_cannot_confirm_other_session(self):
         o=SimpleNamespace(nom='test',annonce=None,fonction=lambda:current().room_id)
-        with patch.object(registre,'_EN_ATTENTE',{}):
+        with patch.object(confirmations,'_EN_ATTENTE',{}):
             with use(contexte('salon')):
                 registre.mettre_en_attente(o,{})
             with use(contexte('bureau')):

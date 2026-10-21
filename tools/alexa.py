@@ -6,7 +6,7 @@ au compte Amazon par cookie (login + 2FA), puis :
   - faire parler un Echo (TTS / annonce),
   - contrôler le média (play/pause/volume),
   - **déclencher une Routine** Alexa par son énoncé -> contrôle INDIRECT des appareils
-    (crée une routine « lumière salon on » dans l'app Alexa, Jarvis la déclenche),
+    (crée une routine « lumière salon on » dans l'app Alexa, Red la déclenche),
   - lister les Echo + leur état.
 
 Fragile par nature (Amazon change/casse l'accès non officiel). L'auth se fait UNE fois
@@ -27,7 +27,7 @@ from core.config import reglage
 from core.registre import outil
 from core.util import sans_accents
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 _RACINE = Path(__file__).resolve().parent.parent
 _LOOP = None
 _LOGIN = None            # AlexaLogin connecté (réutilisé)

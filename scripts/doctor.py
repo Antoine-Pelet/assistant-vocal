@@ -1,4 +1,4 @@
-"""Diagnostic d'une installation Jarvis existante.
+"""Diagnostic d'une installation Red existante.
 
     python scripts/doctor.py
 
@@ -78,7 +78,7 @@ def v_dependances():
             importlib.import_module(m)
             ok(f"{m}")
         except Exception:
-            ko(f"{m} manquant", "lance : uv sync   (ou pip install -r requirements.txt)")
+            ko(f"{m} manquant", "lance : uv sync --extra local   (ou pip install -r requirements.txt)")
     for m, role in optionnels.items():
         try:
             importlib.import_module(m)
@@ -162,29 +162,13 @@ def v_llm():
 
 def v_voix():
     titre("Voix (TTS)")
-    mode = reglage("mode", "cloud")
-    if mode == "local":
-        moteur = (reglage("voix_locale", "piper") or "piper").lower()
-        if moteur == "kokoro":
-            m = reglage("kokoro.modele", "")
-            if m and Path(m).exists():
-                ok("voix Kokoro trouvee")
-            else:
-                warn("Kokoro selectionne mais modele introuvable (kokoro.modele)",
-                     "voir docs/local.md ; sinon Jarvis parle avec la voix Windows.")
-        else:
-            modele = reglage("piper.modele", "")
-            voix_dir = list((RACINE / "voix").glob("*.onnx")) if (RACINE / "voix").exists() else []
-            if modele and Path(modele).exists() or voix_dir:
-                ok("voix Piper trouvee")
-            else:
-                warn("aucune voix Piper (.onnx)", "telecharge une voix FR dans voix/ (voir "
-                     "docs/local.md). Sinon Jarvis parle avec la voix Windows.")
-    else:
-        if reglage("elevenlabs.cle", ""):
-            ok("cle ElevenLabs presente")
-        else:
-            warn("pas de cle ElevenLabs", "Jarvis parlera avec la voix Windows (SAPI). Optionnel.")
+    from services.tts.factory import tts
+    provider=tts()
+    if provider.disponible():ok(f"Moteur principal disponible : {provider.nom}")
+    else:warn(f"Moteur principal indisponible : {provider.nom}","Vérifie les modèles et la référence WAV dans config.yaml.")
+    from services.tts.piper import PiperProvider
+    if PiperProvider().disponible():ok("Secours local Piper Tom disponible")
+    else:warn("Piper Tom absent","Lance installer_red.bat pour télécharger le modèle.")
 
 
 def _port_ouvert(hote, port, timeout=2):
@@ -257,7 +241,7 @@ def v_micro():
 
 def main():
     print("=" * 48)
-    print("  Diagnostic de Jarvis (doctor)")
+    print("  Diagnostic de Red (doctor)")
     print("=" * 48)
     v_python()
     v_dependances()

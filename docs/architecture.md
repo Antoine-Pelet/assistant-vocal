@@ -130,7 +130,7 @@ validation ni son chiffrement.
 ## Services et audio
 
 Les contrats `STTService`, `TTSService`, `LLMService`, `EmbeddingService` acceptent
-un contexte explicite. `services/existing.py` adapte les moteurs actuels sans
+un contexte explicite. Les providers de `services/stt`, `services/tts` et `services/llm` implémentent ces contrats sans
 modifier leurs paramètres. Les appels LLM locaux et satellites utilisent cet
 adaptateur ; le chemin audio du satellite existant utilise aussi STT/TTS.
 

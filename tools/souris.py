@@ -1,4 +1,4 @@
-"""Controle de la souris : Jarvis clique sur ce qu'il VOIT (Windows).
+"""Controle de la souris : Red clique sur ce qu'il VOIT (Windows).
 
 Chaine : capture_screen envoie l'ecran au LLM, qui repere l'element voulu
 DANS L'IMAGE, puis appelle cliquer_ecran avec les coordonnees telles qu'il les
@@ -13,7 +13,7 @@ Idee et approche reprises de la PR macOS de la communaute (arturod67), reecrites
 en natif Windows (ctypes) pour ce depot.
 
 SECURITE : cliquer est SENSIBLE (peut declencher n'importe quoi a l'ecran).
-- confirmation=True : Jarvis annonce et attend le « oui » avant chaque clic.
+- confirmation=True : Red annonce et attend le « oui » avant chaque clic.
 - mcp_expose=False : LOCAL uniquement, jamais expose au pont iPhone / a Hermes.
   Un token vole ne peut pas piloter ta souris.
 """

@@ -52,15 +52,18 @@ class ConfirmationCourteTests(unittest.TestCase):
         decision = SimpleNamespace(type='outil', outil='test_sensible', arguments={})
         for niveau in ('N2', 'N3'):
             with self.subTest(niveau=niveau):
-                outil = SimpleNamespace(confirmation=True, annonce=lambda args: 'Je vais agir.')
-                session = SimpleNamespace(historique=[], en_attente=None)
+                outil = SimpleNamespace(nom='test_sensible', confirmation=True, annonce=lambda args: 'Je vais agir.')
+                session = satellite._Session()
                 with patch('core.registre.get', return_value=outil), \
                         patch('core.registre.est_autorise', return_value=False), \
                         patch('core.registre.niveau', return_value=niveau), \
                         patch.object(satellite, '_executer_outil') as executer:
-                    resultat = satellite._executer_decision_prioritaire(session, decision)
+                    from core.contexte import use
+                    with use(satellite._contexte_session(session)):
+                        resultat = satellite._executer_decision_prioritaire(session, decision)
                 self.assertEqual(resultat, {'reponse': 'Je vais agir. Tu confirmes ?', 'attente_confirmation': True})
                 self.assertEqual(session.en_attente, ('test_sensible', {}))
+                session.en_attente=None
                 executer.assert_not_called()
 
     def test_accord_et_memorisation_restent_compris_sans_propositions(self):
@@ -83,13 +86,13 @@ class IdentiteRedTests(unittest.TestCase):
         from tools.personnalite import changer_personnalite
         with patch('core.config.definir') as definir:
             self.assertEqual(changer_personnalite('red'), 'Mode Red active.')
-            definir.assert_called_once_with('assistant.personnalite', 'jarvis_sarcastique')
+            definir.assert_called_once_with('assistant.personnalite', 'red')
         self.assertEqual(personnalite.normaliser('jarvis'), personnalite.normaliser('red'))
         self.assertIn('Tu es Red.', personnalite.persona(personnalite.normaliser('red')))
 
     def test_catalogue_piper_affiche_red_et_garde_l_identifiant(self):
-        voix = next(v for v in voix_locales.catalogue() if v['id'] == 'jarvis_fr')
-        self.assertEqual(voix['nom'], 'Red — style français')
+        voix = next(v for v in voix_locales.catalogue() if v['id'] == 'tom_fr')
+        self.assertEqual(voix['nom'], 'Tom — français')
         self.assertNotIn('Jarvis', voix['description'])
 
 

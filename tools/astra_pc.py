@@ -6,7 +6,7 @@ Deux entrees :
 - appel par le LLM quotidien quand une tache exige vraiment l'interface graphique
   -> outil N3, donc confirmation vocale obligatoire a chaque fois.
 
-Astra ne recoit PAS de shell. Il choisit une action structuree, Jarvis l'execute,
+Astra ne recoit PAS de shell. Il choisit une action structuree, Red l'execute,
 reprend une capture, puis recommence. Echap arrete la boucle. Les achats, secrets,
 envois, suppressions et commandes systeme restent hors de ce mode.
 """
@@ -23,7 +23,7 @@ from core.util import sans_accents
 from tools.ecran import capture_screen
 from tools.souris import cliquer_ecran
 
-LOG = logging.getLogger("jarvis.astra_pc")
+LOG = logging.getLogger("assistant.astra_pc")
 
 _MARQUEURS_EXPLICITES = (
     "utilise astra",

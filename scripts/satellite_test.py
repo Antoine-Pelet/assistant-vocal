@@ -5,7 +5,7 @@ Se connecte au WebSocket /satellite du serveur unifié, envoie une phrase audio
 reçus (écoute / réflexion / parole / transcription / réponse) et enregistre l'audio
 de réponse dans un WAV pour que tu puisses l'écouter. Mesure la latence.
 
-Prérequis : Jarvis lancé (serveur unifié up), et un satellite déclaré en config :
+Prérequis : Red lancé (serveur unifié up), et un satellite déclaré en config :
   satellites:
     - id: "test"
       piece: "bureau"

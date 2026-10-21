@@ -1,4 +1,12 @@
-# Configuration de Jarvis — copie ce fichier en config.yaml et mets tes valeurs.
+config_version: 2
+admin:
+  enabled: true  # panneau loopback ; mot de passe : python -m assistant_vocal --admin-password
+modules:
+  demo:
+    enabled: false
+    message: pong
+
+# Configuration de Red — copie ce fichier en config.yaml et mets tes valeurs.
 # config.yaml n'est PAS versionne (voir .gitignore) : tes secrets restent chez toi.
 
 # Origine des commandes du PC. Aucun satellite ou service réseau n'est activé ici.
@@ -34,8 +42,8 @@ devices: {}
 # Déclarer chaque appareil réellement pilotable. Un appareil absent est refusé.
 # Voir docs/architecture.md pour les contrats et les autres types d'appareils.
 
-mode: hybride                  # local | hybride | qualite  (voir docs/costs.md)
-                               #  local   = tout local (Ollama + Piper), rien ne sort
+mode: local                    # local | hybride | qualite
+                               #  local   = tout local (Ollama + Chatterbox, repli Piper), rien ne sort
                                #  hybride = DEFAUT : profil quotidien du fournisseur cloud ;
                                #            taches de fond confiees a Hermes
                                #  qualite = profil le plus puissant du meme fournisseur
@@ -55,71 +63,62 @@ openai:
   max_retries: 1
 
 astra_pc:                      # operateur Windows local, declenche a la voix
-  actif: true
+  actif: false
   modele: "gpt-6-astra"
   max_actions: 12             # arret automatique anti-boucle
   timeout: 90                 # secondes ; Echap arrete immediatement
 
 ollama:                        # mode local : modele de langage local (http://localhost:11434)
   hote: "http://localhost:11434"
-  modele: "qwen3.5:4b"         # famille qwen3.5 (teste, bon en function calling + vision).
+  modele: "qwen3.5:2b"         # famille qwen3.5 (teste, bon en function calling + vision).
                                # ~6-8 Go VRAM: 4b ; plus de VRAM: 9b/27b ; peu: 2b.
                                # Voir ollama.com/library ; "python scripts/doctor.py" conseille selon ta VRAM.
                                # Ollama recent requis (le tool-calling qwen3.5 buggait sur d'anciennes versions).
   think: false                 # false = pas de "raisonnement" natif : indispensable pour la latence et les
                                # appels d'outils (sinon tres lent / rendus en texte). Laisse false.
 
-voix_locale: piper             # mode local : "piper" (recommande FR) ou "kokoro"
-
-piper:                         # mode local : voix francaise Piper (voir docs/local.md)
-  modele: ""                   # chemin d'un .onnx ; vide = 1er trouve dans voix/
-
-kokoro:                        # TTS local alternatif (voix FR unique ; uv add kokoro-onnx)
-  modele: ""                   # chemin de kokoro-v1.0.onnx
-  voix: ""                     # chemin de voices-v1.0.bin
-  voix_nom: "ff_siwis"         # voix francaise de Kokoro
+piper:
+  profile: tom_fr              # seule voix de secours conservée
+  modele: "voix/fr_FR-tom-medium.onnx"
 
 anthropic:                     # fournisseur Claude / Anthropic alternatif
   cle: "sk-ant-..."            # https://console.anthropic.com/ , section API keys
   modele: "claude-haiku-4-5"          # mode hybride : modele economique (reflexes + vision)
   modele_qualite: "claude-sonnet-4-5" # mode qualite : modele le plus fort
 
-elevenlabs:                    # facultatif ; sans cle, Jarvis garde la voix Windows
+elevenlabs:                    # facultatif ; sans cle, Red garde la voix Windows
   cle: ""                      # https://elevenlabs.io , profil -> API key (commence par sk_)
   voix: ""                     # ID d'une voix (onglet Voices) ; vide = 1re du compte
   modele: "eleven_flash_v2_5"
   langue: "fr"                 # force la langue (flash/turbo v2.5) : bonne prononciation des accents
 
 tts:
-  voix_locale: siwis_fr        # siwis_fr | tom_fr | jarvis_fr (style Jarvis français, hors ligne)
-  moteur: auto                 # auto | elevenlabs | piper | chatterbox | kokoro | windows
-                               # auto = ElevenLabs en cloud, Piper/Kokoro en local
-  profil: jarvis               # profil Chatterbox dans voices ; indépendant des voix Piper
+  engine: chatterbox          # chatterbox | piper | windows
+  fallback_engine: piper
+  profile: red                # identifiant libre dans voices
 
-# Moteur facultatif : installer_chatterbox.bat, puis moteur: chatterbox ci-dessus.
-# Les chemins sont relatifs au dossier du projet ; WAV non inclus.
+# Installer Chatterbox dans son environnement Python 3.11 isolé : installer_chatterbox.bat.
+# Fichier WAV local : voix claire, une personne, sans musique ; jamais envoyé au cloud.
 chatterbox:
   modele: "models/chatterbox"
   python: ".venv-chatterbox/Scripts/python.exe"
   device: auto                 # auto | cuda | cpu ; repli CPU si CUDA échoue
   threads: 4                   # threads CPU, évite de saturer tout le PC
-  timeout: 180                 # délai maximal par réponse, chargement inclus
+  startup_timeout: 600         # première synthèse, chargement des poids inclus
+  timeout: 180                 # délai des réponses suivantes
 
 voices:
-  jarvis:
-    reference: "voices/jarvis_reference.wav"
-    exaggeration: 0.20
-    cfg_weight: 0.45
-    temperature: 0.8
-  reddington:
+  red:
+    name: Red
     reference: "voices/reddington_reference.wav"
     exaggeration: 0.40
     cfg_weight: 0.35
     temperature: 0.8
+# Ajouter d'autres profils ici, puis changer tts.profile. Aucun changement de code.
 
 hue:                           # Philips Hue, API locale
-  pont: "192.168.1.XXX"        # adresse du pont sur ton reseau
-  cle: "ta-cle-hue"            # cle generee via le bouton du pont
+  pont: ""        # adresse du pont sur ton reseau
+  cle: ""            # cle generee via le bouton du pont
 
 mail:                          # Gmail via IMAP/SMTP (facultatif)
   adresse: "ton.adresse@gmail.com"
@@ -137,16 +136,17 @@ audio:
   raccourci_stop: "ctrl+alt+space" # coupe immédiatement la réponse en cours ("" = off)
 
 whisper:
-  modele: "medium"
+  modele: "models/whisper-base"
+  device: cpu
 
-interruption:                  # couper Jarvis quand tu dis "attends/stop/arrete" par-dessus
-  facteur: 1.8                 # tu dois parler ~1.8x plus fort que l'echo de Jarvis (baisse si ca ne coupe pas)
+interruption:                  # couper Red quand tu dis "attends/stop/arrete" par-dessus
+  facteur: 1.8                 # tu dois parler ~1.8x plus fort que l'echo de Red (baisse si ca ne coupe pas)
   seuil: 0.025                 # niveau minimum absolu de ta voix (baisse si micro peu sensible)
   blocs: 5                     # blocs de 80 ms de parole continue avant de verifier (5 = 0,4 s)
   debug: false                 # true = affiche niv/base/seuil + ce qu'il entend (pour calibrer)
 
 assistant:
-  nom: "Red"
+  name: "Red"
   mot_activation: "red"
   moteur_reveil: "vosk"        # détection locale ; openwakeword exige un modèle entraîné
   modele_reveil: "models/vosk-model-small-fr-0.22"
@@ -155,17 +155,17 @@ assistant:
   confirmer_veille: true       # attend un accord explicite ; le silence prolonge l'écoute
   accuse_reception: true       # « Compris » pendant le traitement de la demande
   attente_debut: 4.0           # temps laissé pour commencer après le bip
-  arbitrage_micro: true        # plusieurs micros entendent Hey Jarvis : seul le meilleur score repond
+  arbitrage_micro: true        # plusieurs micros entendent Hey Red : seul le meilleur score repond
   arbitrage_fenetre: 0.18      # secondes laissees aux micros pour comparer leur detection
   arbitrage_verrou: 4.0        # evite une seconde reponse au meme wake word
   priorite_micro: 1.0          # multiplicateur du micro principal (laisser 1.0 normalement)
-  piece_nuit: "chambre"        # piece allumee au demarrage s'il fait nuit ("" pour desactiver)
-  personnalite: "jarvis_sarcastique"   # jarvis_sarcastique | neutre | concis
+  piece_nuit: ""        # piece allumee au demarrage s'il fait nuit ("" pour desactiver)
+  persona: "red"   # red | neutre | concis
                                # (modifiable a la voix : "passe en mode neutre")
   scene_extinction: "off"      # scene lumieres jouee AVANT d'eteindre le PC ("eteins le PC")
   delai_extinction: 30         # secondes avant l'arret (annulable : "annule l'extinction")
   seuil_reveil: 0.5            # sensibilite du mot d'activation (0.3 = facile, 0.7 = strict)
-  seuil_interruption: 0.7      # sensibilite pour couper Jarvis pendant qu'il parle (plus haut = plus strict)
+  seuil_interruption: 0.7      # sensibilite pour couper Red pendant qu'il parle (plus haut = plus strict)
   # Seuils de NIVEAU (RMS) : dependent du gain du micro. Par defaut AUTO-CALIBRES
   # au demarrage selon le bruit ambiant. Decommente pour figer une valeur (ca
   # desactive l'auto-calibration pour ce seuil).
@@ -239,18 +239,18 @@ serveur:                       # UN serveur web pour TOUT (pont iPhone + webhook
   actif: true                  # panneau local /panneau et pont iPhone
   port: 8790                   # port local unique ; UN seul tunnel ngrok le sert en entier
   # -- Deux facons d'exposer le port (choisis-en UNE) --
-  # A) Jarvis ouvre le tunnel tout seul (pas besoin d'installer la commande ngrok) :
+  # A) Red ouvre le tunnel tout seul (pas besoin d'installer la commande ngrok) :
   ngrok_authtoken: ""          # ton authtoken (dashboard.ngrok.com)
   ngrok_domaine: ""            # ton domaine statique SANS https:// (ex. mon-truc.ngrok-free.app) ; vide = URL aleatoire
   # B) Tu lances ngrok toi-meme (CLI) : renseigne public_url et laisse authtoken/domaine vides
   public_url: ""               # ex. "https://mon-truc.ngrok.app"
 
 pont_iphone:                   # notes/commandes depuis l'iPhone (Raccourcis) ; voir docs/iphone.md
-  token: ""                    # SECRET : en-tete X-Jarvis-Token (genere une longue chaine aleatoire)
+  token: ""                    # SECRET : en-tete X-Red-Token (genere une longue chaine aleatoire)
 
 navigateur:                    # assistance sur TON Chrome (voir docs/navigateur.md)
-  cdp_port: 9222               # port de debug (raccourci "Chrome + Jarvis")
-  domaines_proteges:           # sites ou Jarvis LIT mais n'AGIT jamais (fais-le toi-meme)
+  cdp_port: 9222               # port de debug (raccourci "Chrome + Red")
+  domaines_proteges:           # sites ou Red LIT mais n'AGIT jamais (fais-le toi-meme)
     - "impots.gouv.fr"
     - "ameli.fr"
     - "labanquepostale.fr"
@@ -260,9 +260,9 @@ navigateur:                    # assistance sur TON Chrome (voir docs/navigateur
     - "facture.net"              # facturation : lecture seule (outil factures_statut)
     # ajoute tes banques / sites sante / administration
 
-factures:                      # statut de facturation (facture.net) — LECTURE SEULE via ChromeJarvis
+factures:                      # statut de facturation (facture.net) — LECTURE SEULE via ChromeRed
   url: ""                      # URL de TON tableau de bord facture.net (copie-la depuis
-                               # ChromeJarvis une fois connecte : "https://www.facture.net/...")
+                               # ChromeRed une fois connecte : "https://www.facture.net/...")
 
 mcp:                           # serveur MCP (expose les outils domotique/PC ; voir docs/mcp.md)
   transport: "stdio"           # "stdio" (clients desktop) ou "http" (client distant)
@@ -318,7 +318,7 @@ hermes:                        # delegation a Hermes Agent (facultatif ; voir do
   api_url: "http://127.0.0.1:8642"   # API locale d'Hermes (gateway, loopback uniquement)
   api_key: ""                        # cle du serveur API d'Hermes (= API_SERVER_KEY de son .env)
   # api_key_file: ""                 # alternative : chemin d'un fichier contenant la cle
-  session: "jarvis-delegation"       # repli ; Jarvis genere sinon une session unique par delegation
+  session: "jarvis-delegation"       # repli ; Red genere sinon une session unique par delegation
   modele_facturation: ""              # si l'API ne renvoie pas le modele : ex. "opus" pour estimer le cout
   timeout: 900                       # secondes max d'une delegation (une recherche de fond peut durer)
   resume_max: 500                    # longueur max du resume lu a voix haute (filtre de confidentialite)
@@ -362,7 +362,7 @@ budget:                        # suivi de conso + garde-fous (N12) ; voir docs/c
   crons_critiques: []          # noms de crons Hermes JAMAIS suspendus au plafond (ex: ["reveil", "sauvegarde"])
 
 gestes:                        # controle par gestes de la main (webcam USB) ; voir docs/gestes.md
-  actif: false                 # demarrer au lancement (sinon : "Jarvis, active les gestes")
+  actif: false                 # demarrer au lancement (sinon : "Red, active les gestes")
   device: 0                    # index de la webcam USB (0 = premiere)
   fps: 24                      # ~20-30 suffisent ; CPU-only, ne doit rien voler a Whisper
   largeur: 640
@@ -425,17 +425,11 @@ musique:                       # reconnaissance musicale (Shazam-like) ; voir do
 spotify:                       # ajouter les musiques reconnues a une playlist ; docs/spotify.md
   client_id: ""                # https://developer.spotify.com/dashboard (cree une app)
   client_secret: ""            # + URI de redirection : http://127.0.0.1:8899/callback
-  playlist: "Jarvis Finds"     # nom de la playlist cible (creee si absente)
+  playlist: "Red Finds"     # nom de la playlist cible (creee si absente)
   auto_ajout: false            # true = ajoute AUTOMATIQUEMENT chaque musique reconnue
   lancement_delai: 3.0         # attente si l'app doit devenir un lecteur Spotify actif
-  appareils: {}                # ex. {cuisine: "Jarvis Cuisine"} pour Spotify Connect
+  appareils: {}                # ex. {cuisine: "Red Cuisine"} pour Spotify Connect
   # Connexion une fois : python scripts/spotify_login.py (refresh_token dans logs/spotify/)
-
-cockpit:                       # tableau de bord perso (app web locale) ; docs/cockpit.md
-  actif: false                 # ouvrir le cockpit au demarrage (fenetre app --app)
-  ecran: 0                     # ecran cible (0 = principal, 1 = 2e ecran...)
-  navigateur: ""               # chemin chrome/edge ; vide = auto-detection
-  # Donnees 100% locales dans finances/ (gitignore). Copie finances/abonnements.example.yaml
 
 finances:                      # transactions (import CSV, puis PSD2) ; docs/cockpit.md
   dossier_csv: "finances/releves"   # depose ton export bancaire CSV ici -> "importe mon releve"
@@ -445,18 +439,6 @@ amaran:                        # lumieres video amaran (BLE mesh via ESP32) ; do
   url: ""                      # http://<ip-esp32>:2708 (firmware wesbos/amaran-BLE-control) ; vide = desactive
   piece: ""                    # piece ou elle se trouve (ex. "chambre") -> repond aussi a "la lumiere de la chambre"
   noms: []                     # alias supplementaires reconnus (ex. ["ma lumiere", "spot"])
-
-overlay:                       # mini-fenetre qui affiche a l'ecrit ce que Jarvis dit ; docs/overlay.md
-  actif: true                  # afficher l'overlay (Windows uniquement ; sinon ignore)
-  ecran: 1                     # moniteur cible (0 = principal, 1 = 2e ecran...)
-  coin: "bas-droite"           # haut-gauche / haut-droite / bas-gauche / bas-droite
-  opacite: 0.92                # 0.3 - 1.0
-  largeur: 420                 # px
-  duree_min: 4.0               # s d'affichage (reponse courte)
-  duree_max: 14.0              # s d'affichage (reponse longue)
-  marge: 24                    # px depuis le bord de l'ecran
-  exclure_obs: true            # invisible pour OBS/game-capture (tes reponses hors live)
-  muet_visuel: false           # true = repond SANS parler (overlay seul) ; bascule a la voix
 
 google_home:                   # EXPERIMENTAL (non teste) ; voir docs/google_home.md
   project_id:    ""            # ID du projet Device Access (SDM) ; vide = desactive
@@ -476,8 +458,8 @@ alexa:                         # EXPERIMENTAL (via alexapy, non officiel) ; voir
 meteo:
   ville: ""                     # "" = auto par IP (localisation) ; mets ta ville si l'IP se trompe (ex. "Yerres", "Paris")
 
-satellites:                    # Jarvis dans d'autres pieces (Raspberry Pi, futur ESP32) — cf. docs/satellite.md
-  # LAN uniquement (jamais expose via ngrok). Jarvis ouvre automatiquement le
+satellites:                    # Red dans d'autres pieces (Raspberry Pi, futur ESP32) — cf. docs/satellite.md
+  # LAN uniquement (jamais expose via ngrok). Red ouvre automatiquement le
   # listener satellite dédié ci-dessous si au moins une entrée est configurée.
   # - id: "cuisine"            # identifiant unique du satellite
   #   piece: "cuisine"         # piece par defaut (contexte : "allume la lumiere" -> cuisine)
@@ -492,9 +474,9 @@ satellite_lan:
   whisper_modele: "small"      # modèle dédié au satellite, plus léger que le principal
   whisper_device: "cpu"        # évite de charger un second Whisper sur le GPU
   whisper_compute_type: "int8"
-  conversation_suivie: true    # relance sans répéter « Hey Jarvis » après une réponse
+  conversation_suivie: true    # relance sans répéter « Hey Red » après une réponse
   fenetre_relance: 8.0         # secondes d'écoute pour une question de suivi
-  max_relances: 2              # nombre maximal de suivis par « Hey Jarvis » ; évite l'écoute infinie
+  max_relances: 2              # nombre maximal de suivis par « Hey Red » ; évite l'écoute infinie
   accuse_reveil_vocal: true    # dit « Oui ? » dès que le wake word est accepté
   texte_accuse_reveil: "Oui ?"
   delai_accuse_reveil: 2.5     # au-delà, le satellite utilise son bip local

@@ -7,7 +7,7 @@ THEMES + un enrichissement (tags/format/pourquoi), APPEND l'entree a index.md
 progression.txt, puis relance graphe.py + build_vault.py, et (option) miroir Drive.
 
 Regles (fiches A/B + 4bis) :
-  - Jarvis est le SEUL greffier de index.md : append-only, dedup par <shortcode>.
+  - Red est le SEUL greffier de index.md : append-only, dedup par <shortcode>.
   - ingest.py n'est PAS modifie ; l'enrichissement du front-matter se fait ICI,
     sur la fiche que le pipeline vient de creer (les anciennes fiches sont
     laissees telles quelles ; parsing tolerant).
@@ -37,10 +37,10 @@ except Exception:
 
 from core.config import reglage
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 
 # Journal dedie au hub : une trace par etape -> logs/hub.log (plus d'echec silencieux).
-_LOGH = logging.getLogger("jarvis.hub")
+_LOGH = logging.getLogger("assistant.hub")
 if not _LOGH.handlers:
     _dlog = Path(__file__).resolve().parent.parent / "logs"
     _dlog.mkdir(exist_ok=True)
@@ -54,7 +54,7 @@ if not _LOGH.handlers:
 
 def _python() -> str:
     """Python qui possede les deps d'ingest.py (yt-dlp, faster-whisper, gallery-dl) :
-    le python SYSTEME, PAS le venv de Jarvis (qui ne les a pas). Configurable via
+    le python SYSTEME, PAS le venv de Red (qui ne les a pas). Configurable via
     integrations.python."""
     cfg = reglage("integrations.python", "")
     if cfg:
@@ -408,7 +408,7 @@ def indexer_fiche(chemin: Path, commentaire: str = "") -> dict:
 
 def ingerer_inspiration(url: str, commentaire: str = "") -> dict:
     """Pipeline complet depuis une URL : ingest.py (brut) -> indexeur -> rendu.
-    Renvoie un dict avec ok/titre/auteur/message (pour la notif vocale de Jarvis)."""
+    Renvoie un dict avec ok/titre/auteur/message (pour la notif vocale de Red)."""
     vault = _vault()
     _LOGH.info("=== inspiration recue | url=%s | commentaire=%r ===", url, commentaire)
     if not vault.exists():

@@ -1,7 +1,7 @@
 """Ouvre le panneau de configuration web local dans le navigateur.
 
 Commande vocale : « ouvre le tableau de configuration », « ouvre le tableau de
-bord », « ouvre le panneau », « montre la config ». C'est du Jarvis pur (action
+bord », « ouvre le panneau », « montre la config ». C'est du Red pur (action
 locale) : lance le navigateur par défaut sur http://localhost:<port>/panneau.
 
 N1 (sans danger) et **non exposé au MCP** : ouvrir une fenêtre sur la machine est

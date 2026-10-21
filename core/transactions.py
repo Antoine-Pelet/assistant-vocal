@@ -20,7 +20,7 @@ import yaml
 
 from core.util import sans_accents
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 _RACINE = Path(__file__).resolve().parent.parent
 _DOSSIER = _RACINE / "finances"
 _FICHIER = _DOSSIER / "transactions.jsonl"

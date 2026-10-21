@@ -12,7 +12,7 @@ import re
 
 from core.util import sans_accents
 
-LOG = logging.getLogger("jarvis.routage_intentions")
+LOG = logging.getLogger("assistant.routage_intentions")
 
 
 @dataclass(frozen=True)

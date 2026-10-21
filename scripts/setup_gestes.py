@@ -48,7 +48,7 @@ def main():
     _run([str(PY), "-c",
           "import mediapipe, cv2; print('OK — mediapipe', mediapipe.__version__, '| opencv', cv2.__version__)"])
     print("\n✅ Environnement gestes prêt.")
-    print('   Active : « Jarvis, active les gestes »  (ou config gestes.actif: true)')
+    print('   Active : « Red, active les gestes »  (ou config gestes.actif: true)')
     print("   Calibration (à l'arrivée de la webcam) : python scripts/gestes_calibrer.py")
     return 0
 

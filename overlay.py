@@ -1,4 +1,4 @@
-"""Overlay de réponses : mini-fenêtre flottante qui affiche à l'écrit ce que Jarvis
+"""Overlay de réponses : mini-fenêtre flottante qui affiche à l'écrit ce que Red
 dit, en complément (ou à la place) de la voix. JARVIS PUR : affichage local, temps
 réel, zéro réseau.
 
@@ -102,7 +102,7 @@ def est_actif():
 
 
 def set_muet(actif):
-    """Mode silencieux visuel : la réponse s'affiche mais Jarvis ne parle pas."""
+    """Mode silencieux visuel : la réponse s'affiche mais Red ne parle pas."""
     _CFG["muet"] = bool(actif)
 
 

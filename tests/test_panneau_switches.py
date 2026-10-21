@@ -36,7 +36,7 @@ class PanneauSwitchTests(unittest.TestCase):
             resultat = panneau._definir_reglage("tts.moteur", "elevenlabs")
 
         self.assertTrue(resultat["ok"])
-        ecrire.assert_called_once_with("tts.moteur", "elevenlabs")
+        ecrire.assert_called_once_with("tts.engine", "elevenlabs")
         reinitialiser.assert_called_once_with()
 
 

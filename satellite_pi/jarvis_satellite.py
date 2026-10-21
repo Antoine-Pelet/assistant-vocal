@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Client audio satellite Jarvis pour Raspberry Pi ou machine Linux compatible.
+"""Client audio satellite Red pour Raspberry Pi ou machine Linux compatible.
 
 Le dossier satellite_pi/ peut être déployé sans le reste du dépôt. Le client :
-  1. écoute le micro et détecte « Hey Jarvis » SUR LE PI (openWakeWord) ;
+  1. écoute le micro et détecte « Hey Red » SUR LE PI (openWakeWord) ;
   2. capture ta phrase jusqu'au silence, l'envoie en PCM 16 kHz au PC
      (WebSocket /satellite) ;
   3. joue l'audio de réponse renvoyé par le PC sur le haut-parleur ;
@@ -212,7 +212,7 @@ class Micro:
                 f"  [wake] gain x{self.gain_reveil:g}, "
                 f"seuil {self.seuil_reveil:g}"
             )
-        print("Satellite prêt. Dites « Hey Jarvis ».")
+        print("Satellite prêt. Dites « Hey Red ».")
         try:
             while not self.stop.is_set():
                 bloc = self._lire_bloc(flux)
@@ -240,7 +240,7 @@ class Micro:
                 if not accepte:
                     print("  [wake] ignoré — un micro plus proche a répondu")
                     continue
-                print("  [wake] Hey Jarvis — j'écoute")
+                print("  [wake] Hey Red — j'écoute")
                 # Le serveur joue normalement « Oui ? » avant d'autoriser la
                 # capture. Un bip local reste le repli si le TTS est indisponible.
                 if not accuse_vocal:
@@ -397,7 +397,7 @@ async def _session(url, satellite, token, file_audio, occupe, micro):
                 elif t == "veille_forcee":
                     micro.fermer_relance()
                     occupe.clear()
-                    print("  [conversation] veille forcée — dites « Hey Jarvis » pour me réveiller")
+                    print("  [conversation] veille forcée — dites « Hey Red » pour me réveiller")
                 elif t == "erreur":
                     print("  [erreur]", d.get("message"))
         finally:

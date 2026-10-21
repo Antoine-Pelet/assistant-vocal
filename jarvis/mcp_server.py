@@ -1,4 +1,4 @@
-"""Serveur MCP exposant les outils de Jarvis a n'importe quel client MCP.
+"""Serveur MCP exposant les outils de Red a n'importe quel client MCP.
 
 Reutilise le registre d'outils (dossier tools/) : chaque outil marque
 mcp_expose=True est expose automatiquement, avec son nom, sa description et le
@@ -36,7 +36,7 @@ from core.config import reglage
 # --- journal dedie aux appels externes -------------------------------------
 _DOSSIER = Path(__file__).resolve().parent.parent / "logs"
 _DOSSIER.mkdir(exist_ok=True)
-LOG = logging.getLogger("jarvis.mcp")
+LOG = logging.getLogger("assistant.mcp")
 LOG.setLevel(logging.INFO)
 _handler = logging.FileHandler(_DOSSIER / "mcp.log", encoding="utf-8")
 _handler.setFormatter(logging.Formatter(

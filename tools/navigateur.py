@@ -1,7 +1,7 @@
 """Assistance sur TON vrai navigateur Chrome (Playwright via CDP).
 
 Se connecte a un Chrome lance avec --remote-debugging-port (raccourci
-"Chrome + Jarvis") pour t'assister pendant que tu surfes : ouvrir un onglet,
+"Chrome + Red") pour t'assister pendant que tu surfes : ouvrir un onglet,
 lire/resumer la page active, gerer les onglets, agir (clic/scroll/champ).
 
 Distinct de la reservation (Partie A) qui, elle, tourne sur un profil Playwright
@@ -9,7 +9,7 @@ SEPARE. Ici c'est ton navigateur de tous les jours.
 
 SECURITE (ton Chrome = toutes tes sessions connectees) :
   - Domaines proteges (banque, impots, sante... dans config.yaml) : LECTURE
-    autorisee, mais AUCUNE action (clic/saisie) -> Jarvis te dit de le faire.
+    autorisee, mais AUCUNE action (clic/saisie) -> Red te dit de le faire.
   - Jamais de saisie de mot de passe. Achat/paiement detecte -> il te laisse
     valider toi-meme.
   - Fermer des onglets passe par une confirmation vocale (action destructive).
@@ -27,7 +27,7 @@ from core.config import reglage
 from core.registre import outil
 from core.util import sans_accents
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 
 _BROWSER = None   # navigateur Chrome connecte via CDP
 
@@ -120,10 +120,10 @@ def _port_ouvert(port):
 
 
 def _lancer_chrome(port):
-    """Lance le Chrome dedie (profil « ChromeJarvis ») avec le port de debug.
+    """Lance le Chrome dedie (profil « ChromeRed ») avec le port de debug.
 
     Chrome 136+ interdit le debug sur le profil par defaut -> profil separe, comme
-    le raccourci « Chrome + Jarvis ». Renvoie True si le lancement est parti."""
+    le raccourci « Chrome + Red ». Renvoie True si le lancement est parti."""
     if _port_ouvert(port):          # deja lance par ailleurs
         return True
     exe = _chrome_exe()
@@ -131,7 +131,7 @@ def _lancer_chrome(port):
         LOG.warning("navigateur: chrome.exe introuvable")
         return False
     profil = reglage("navigateur.profil_dir", "") or \
-        str(Path(os.environ.get("LOCALAPPDATA", "")) / "ChromeJarvis")
+        str(Path(os.environ.get("LOCALAPPDATA", "")) / "ChromeRed")
     try:
         subprocess.Popen([exe, f"--remote-debugging-port={port}",
                           f"--user-data-dir={profil}"],

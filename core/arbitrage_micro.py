@@ -1,6 +1,6 @@
 """Arbitrage du mot d'activation entre le micro principal et les satellites.
 
-Quand plusieurs micros entendent le même « Hey Jarvis », ils déposent leur score
+Quand plusieurs micros entendent le même « Hey Red », ils déposent leur score
 openWakeWord pendant une fenêtre très courte. Seule la source au meilleur score
 obtient le droit de biper, capturer et répondre.
 """

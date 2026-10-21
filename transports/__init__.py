@@ -1,0 +1,1 @@
+"""Composant du backend Red."""

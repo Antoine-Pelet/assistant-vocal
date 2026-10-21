@@ -1,6 +1,6 @@
 """Cockpit : app web locale (servie par le serveur unifié) — tableau de bord perso.
 
-DOCTRINE : Jarvis détient les clés et le corps ; TOUTES les données restent LOCALES
+DOCTRINE : Red détient les clés et le corps ; TOUTES les données restent LOCALES
 (dossier finances/ gitignoré). Rien n'est exposé au MCP ni au réseau : garde
 local-only (comme le panneau). Hermes ne reçoit que des AGRÉGATS, sur demande.
 
@@ -21,7 +21,7 @@ import yaml
 from core.config import reglage
 from core.panneau import _local_seulement   # même garde local que le panneau
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 _RACINE = Path(__file__).resolve().parent.parent
 _HTML = _RACINE / "web" / "cockpit.html"
 _DOSSIER = _RACINE / "finances"

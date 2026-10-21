@@ -392,7 +392,7 @@ def filtrer_mesures(mesures):
 
 def _calibrer(cv2, cap, landmarker, mp, souris):
     largeur, hauteur = souris.largeur, souris.hauteur
-    nom = "Jarvis - calibration du regard"
+    nom = "Red - calibration du regard"
     cv2.namedWindow(nom, cv2.WINDOW_NORMAL)
     cv2.setWindowProperty(nom, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
@@ -580,7 +580,7 @@ def executer(device=0, modele=None, clics_actifs=False):
     try:
         calibration, profil_sourcils = _calibrer(
             cv2, cap, landmarker, mp, souris)
-        nom = "Jarvis - test regard (local)"
+        nom = "Red - test regard (local)"
         cv2.namedWindow(nom, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(nom, 720, 480)
         cv2.setWindowProperty(nom, cv2.WND_PROP_TOPMOST, 1)

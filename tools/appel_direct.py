@@ -1,6 +1,6 @@
 """Appels V2 : CONVERSATION temps reel via Twilio Media Streams.
 
-call_and_book(numero, objectif, contraintes) : Jarvis appelle, se presente
+call_and_book(numero, objectif, contraintes) : Red appelle, se presente
 honnetement, expose la demande, comprend les reponses (Whisper), repond (LLM cloud,
 phrases courtes), negocie dans les limites donnees, et conclut (ElevenLabs en
 sortie ulaw 8 kHz, le format de Twilio).
@@ -35,7 +35,7 @@ from core.registre import outil
 # le domaine ngrok pouvait ouvrir un tour LLM + TTS (drain de budget API).
 _STREAM_SECRET = reglage("appel.stream_secret", "") or secrets.token_urlsafe(24)
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 _RACINE = Path(__file__).resolve().parent.parent
 
 # Le serveur websocket est desormais le serveur unifie (core.serveur) : la route
@@ -156,12 +156,12 @@ class Conversation:
         self.buffer = bytearray()   # utterance mu-law en cours
         self.actif = False          # la personne parle-t-elle
         self.silence_ms = 0
-        self.occupe = False         # un tour Jarvis est en cours
+        self.occupe = False         # un tour Red est en cours
         self.fini = False
         self.debut = time.time()
 
     async def demarrer(self):
-        # Jarvis parle en premier : presentation honnete + demande.
+        # Red parle en premier : presentation honnete + demande.
         self.historique.append({"role": "user", "content":
             "[L'appel vient de decrocher. Presente-toi honnetement et expose la demande.]"})
         await self._tour_jarvis()

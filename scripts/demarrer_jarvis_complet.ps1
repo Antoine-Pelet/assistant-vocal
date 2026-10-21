@@ -28,14 +28,14 @@ if (Test-Path $chain) {
 
 # 2) Jarvis vocal — ANTI-DOUBLON : ne lance que s'il ne tourne pas déjà.
 $deja = Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" |
-        Where-Object { $_.CommandLine -match 'jarvis14\.py' }
+        Where-Object { $_.CommandLine -match 'assistant_vocal|jarvis14\.py' }
 if ($deja) {
   Log "Jarvis vocal déjà lancé (PID $($deja.ProcessId -join ', ')) -> rien à faire"
 } else {
   $uv = "$env:USERPROFILE\.local\bin\uv.exe"
   if (-not (Test-Path $uv)) { $uv = "uv" }          # repli sur le PATH
   Log "lancement du Jarvis vocal via $uv"
-  Start-Process $uv -ArgumentList "run","python","jarvis14.py" `
-    -WorkingDirectory $jarvis -WindowStyle Minimized
+  Start-Process $uv -ArgumentList "run","--extra","local","python","-m","assistant_vocal" `
+    -WorkingDirectory $jarvis -WindowStyle Hidden
 }
 Log "=== fait ==="

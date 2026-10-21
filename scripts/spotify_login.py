@@ -116,7 +116,7 @@ def main():
     if "user-modify-playback-state" not in scopes:
         print("   ⚠️ Le contrôle de lecture n'est pas accordé. Les titres pourront "
               "être ouverts, mais pas lancés automatiquement.")
-    print("   Redémarre Jarvis. Tu peux ensuite dire « lance ma playlist Chill » "
+    print("   Redémarre Red. Tu peux ensuite dire « lance ma playlist Chill » "
           "ou « ajoute-la à ma playlist ».")
 
 

@@ -338,8 +338,8 @@ class _Poignee(BaseHTTPRequestHandler):
             self._json({"ok": False, "message": "Acces local uniquement."}, 403)
             return
         # L'en-tete custom provoque un preflight pour toute page tierce : sans
-        # reponse CORS, un site visite dans le navigateur ne peut pas modifier Jarvis.
-        if self.headers.get("X-Jarvis-HUD") != "1":
+        # reponse CORS, un site visite dans le navigateur ne peut pas modifier Red.
+        if self.headers.get("X-Red-HUD") != "1":
             self._json({"ok": False, "message": "Requete HUD invalide."}, 403)
             return
         if "application/json" not in self.headers.get("Content-Type", "").lower():

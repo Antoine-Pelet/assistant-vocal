@@ -1,4 +1,4 @@
-"""Notes de Jarvis : tes idees de contenu, courses, taches... en markdown.
+"""Notes de Red : tes idees de contenu, courses, taches... en markdown.
 
 Chaque categorie est un fichier de notes/ (idees.md, courses.md, taches.md...).
 Une note = une ligne horodatee avec sa source (voix, iPhone...). Le dossier notes/
@@ -15,7 +15,7 @@ from pathlib import Path
 from core.registre import outil
 from core.util import sans_accents
 
-LOG = logging.getLogger("jarvis")
+LOG = logging.getLogger("assistant")
 _RACINE = Path(__file__).resolve().parent.parent
 
 CATEGORIES = {
