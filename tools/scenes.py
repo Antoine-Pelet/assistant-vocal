@@ -1,7 +1,7 @@
 """Scènes composites : au démarrage (matin) et extinction (« on éteint tout »).
 
 Contrairement à tools/modes.py (ambiances LUMIÈRES seules), une scène orchestre
-plusieurs domaines — musique, lumières, voix, OBS, PC. JARVIS PUR : physique et
+plusieurs domaines — musique, lumières, voix, OBS, PC. RED LOCAL : physique et
 réflexe, en local (doctrine règle 3).
 
 - au_demarrage : jouée au 1er lancement du jour (Spotify + lumières selon l'heure
@@ -166,7 +166,7 @@ def scene_au_demarrage(forcer=False):
 
 
 def jouer_au_demarrage_async():
-    """Lance la scène du matin en tâche de fond (appelée par jarvis14 au boot)."""
+    """Lance la scène du matin en tâche de fond (appelée par le module de compatibilité au démarrage)."""
     if _deja_fait_aujourdhui() or not reglage("scenes.au_demarrage_actif", True):
         return
     threading.Thread(target=scene_au_demarrage, name="scene_demarrage", daemon=True).start()

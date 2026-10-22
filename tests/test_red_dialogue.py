@@ -52,7 +52,8 @@ class ConfirmationCourteTests(unittest.TestCase):
         decision = SimpleNamespace(type='outil', outil='test_sensible', arguments={})
         for niveau in ('N2', 'N3'):
             with self.subTest(niveau=niveau):
-                outil = SimpleNamespace(nom='test_sensible', confirmation=True, annonce=lambda args: 'Je vais agir.')
+                outil = SimpleNamespace(nom='test_sensible', confirmation=True, permission_level=niveau,
+                                        annonce=lambda args: 'Je vais agir.', fonction=Mock(return_value='fait'))
                 session = satellite._Session()
                 with patch('core.registre.get', return_value=outil), \
                         patch('core.registre.est_autorise', return_value=False), \
@@ -65,6 +66,7 @@ class ConfirmationCourteTests(unittest.TestCase):
                 self.assertEqual(session.en_attente, ('test_sensible', {}))
                 session.en_attente=None
                 executer.assert_not_called()
+                outil.fonction.assert_not_called()
 
     def test_accord_et_memorisation_restent_compris_sans_propositions(self):
         for reponse, memoriser in [('oui', False), ('oui toujours', True)]:

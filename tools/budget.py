@@ -1,7 +1,7 @@
 """Budget & routage à la voix : « mon budget ? » (ventilé par fournisseur, avec la
 part d'Hermes) et « passe en local / hybride / qualité ».
 
-JARVIS PUR : lecture de sa propre compta + choix du backend. N1 (lecture / réglage
+RED LOCAL : lecture de sa propre compta + choix du backend. N1 (lecture / réglage
 local). mon_budget exposé au MCP (lecture inoffensive) ; changer de mode ne l'est
 pas (ça touche au corps de Red).
 """

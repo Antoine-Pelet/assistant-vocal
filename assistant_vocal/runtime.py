@@ -57,14 +57,13 @@ class Runtime:
     def start(self):
         if self.started:
             return
-        self.tools.charger_outils()
         self.devices  # valide le catalogue sans commander les appareils
         self.capabilities.publish("home.devices", _DeviceAccess(self), "runtime")
         self.capabilities.publish("events.local", self.events, "runtime")
         self.modules = ModuleManager(
             self,
             Path(__file__).resolve().parents[1] / "modules",
-            self.config.reglage("modules", {}),
+            self.config.migrate(self.config._charger()).get("modules", {}),
         )
         try:
             self.modules.start()
@@ -101,7 +100,12 @@ class Runtime:
                 )
         memoire._MAGASIN = None
         self.capabilities.remove_owner("runtime")
+        self.capabilities.remove_owner("audio")
         self.started = False
+
+    def schemas(self, **filters):
+        return [schema for schema in self.tools.schemas_api(**filters)
+                if self.capabilities.resolve(schema["name"]) is not None]
 
     def health(self):
         modules = self.modules.health() if self.modules else {}

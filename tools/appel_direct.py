@@ -42,7 +42,7 @@ _RACINE = Path(__file__).resolve().parent.parent
 # /stream y est montee par monter_ws(). Ici on ne garde que l'etat des appels.
 _RESULTATS = {}        # callSid -> {"event": Event, "echanges": [...], "statut": str}
 
-_TRANSCRIPTEUR = None   # np.float32 (16kHz) -> texte, fourni par jarvis14
+_TRANSCRIPTEUR = None   # np.float32 (16kHz) -> texte, fourni par le contrat audio local
 _CLIENT = None
 
 

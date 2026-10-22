@@ -83,3 +83,11 @@ Les intégrations existantes restent facultatives et nécessitent leur propre
 configuration. Leur présence dans le registre ne garantit pas que leurs appareils
 ou comptes externes sont connectés. Les anciens HUD, overlay et cockpit ne sont
 plus chargés au lancement ; leurs fichiers restent temporairement dépréciés.
+
+## Capacités exécutables et modules
+
+Hermes, Vision et le contrôle PC passent par des modules découverts automatiquement.
+Le panneau `/panneau` possède un onglet **Modules**. Les niveaux N1/N2/N3 restent
+communs aux commandes vocales et aux appels d’outils. Voir le
+[rapport de cette étape](docs/refonte-capabilities-rapport.md) et le
+[guide des modules](docs/modules.md). Les changements prennent effet après redémarrage.

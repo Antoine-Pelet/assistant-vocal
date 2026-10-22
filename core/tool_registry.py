@@ -101,7 +101,7 @@ def affichage(nom):
     return getattr(o, "affichage", "auto") if o else "auto"
 
 
-def charger_outils():
+def charger_outils(exclude=()):
     """Importe tous les modules de tools/ pour remplir le registre.
 
     Chaque module est isolé : si l'un rate son import (dépendance optionnelle
@@ -112,7 +112,7 @@ def charger_outils():
 
     echecs = []
     for module in pkgutil.iter_modules(tools.__path__):
-        if module.name == "reponses":
+        if module.name == "reponses" or module.name in exclude:
             continue  # overlay déprécié
         try:
             importlib.import_module(f"tools.{module.name}")

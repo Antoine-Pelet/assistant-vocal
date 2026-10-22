@@ -1,0 +1,10 @@
+{
+  "id": "computer",
+  "name": "Contrôle du PC",
+  "version": "1.0.0",
+  "description": "Opérateur Astra avec confirmation N3.",
+  "entrypoint": "modules.computer.module:Module",
+  "legacy_tool_modules": [
+    "astra_pc"
+  ]
+}

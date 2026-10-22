@@ -8,7 +8,7 @@ LOG = logging.getLogger("assistant.llm")
 
 
 class OpenAIProvider(ProviderLLM):
-    """Adaptateur Responses API -> forme historique comprise par jarvis14."""
+    """Adaptateur Responses API -> forme historique comprise par la couche conversationnelle."""
 
     nom = "OpenAI"
 

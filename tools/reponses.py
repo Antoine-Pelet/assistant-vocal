@@ -1,5 +1,5 @@
 """Contrôle vocal de l'overlay de réponses (la mini-fenêtre qui affiche à l'écrit
-ce que Red dit). JARVIS PUR : affichage local. Outils N1, non exposés au MCP
+ce que Red dit). RED LOCAL : affichage local. Outils N1, non exposés au MCP
 (l'overlay est sur MON écran, pas pilotable à distance ni par Hermes).
 
 Voir docs/overlay.md.

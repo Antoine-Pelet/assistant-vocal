@@ -141,21 +141,14 @@ class ConversationManager:
                 break
             nom = bloc.name
             arguments = bloc.input or {}
-            outil = registre.get(nom)
             debut_outil = time.monotonic()
-
-            if outil is None:
-                resultat = f"Outil inconnu : {nom}"
-            elif outil.confirmation and not registre.est_autorise(nom):
-                # N2 memorise "toujours autoriser" -> on n'attend pas (est_autorise True).
-                # Un N3 n'est jamais autorise d'avance : il repasse toujours par ici.
-                resultat = registre.mettre_en_attente(outil, arguments)
-            else:
-                try:
-                    resultat = outil.fonction(**arguments)
-                except Exception:
-                    LOG.exception("outil %s a plante", nom)
-                    resultat = "Desole, je n'ai pas reussi a faire ca."
+            from assistant_vocal.runtime import runtime
+            from core.capability_errors import CapabilityExecutionError
+            runtime.start()
+            try:
+                resultat = runtime.capabilities.execute(nom, arguments)
+            except CapabilityExecutionError as error:
+                resultat = str(error)
 
             LOG.info(
                 "outil %s termine en %.3fs (type=%s)",
@@ -169,7 +162,7 @@ class ConversationManager:
             if isinstance(resultat, dict) and resultat.get("image"):
                 img = resultat["image"]
                 apercu = resultat.get("apercu", "Capture d'ecran envoyee.")
-                print(f"  [outil] {nom} -> {apercu}")
+                LOG.info("Résultat visuel : %s", nom)
                 output.event("outil", nom, apercu[:60])
                 contenu = [
                     {
@@ -182,7 +175,7 @@ class ConversationManager:
                     }
                 ]
             else:
-                print(f"  [outil] {nom} -> termine")
+                LOG.info("Action terminée : %s", nom)
                 output.event("outil", nom, "Action terminee")
                 contenu = str(resultat)
 
@@ -193,9 +186,6 @@ class ConversationManager:
                     "content": contenu,
                 }
             )
-
-            if nom in ("remember", "forget", "changer_personnalite"):
-                self.refresh(session)
 
         return resultats
 
@@ -224,61 +214,18 @@ class ConversationManager:
 
     def execute_decision(self, session, decision, output, question=""):
         historique = session.history
-        if decision.type == "astra":
-            from tools.astra_pc import executer_controle
-
-            if not decision.tache:
-                texte = (
-                    "Dis-moi quelle tache tu veux que je fasse sur le PC avec Astra."
-                )
-            else:
-                output.event("etat", "parole")
-                output.say(
-                    "D'accord, Astra prend le controle du PC. Appuie sur Echap pour arreter."
-                )
-                output.event("etat", "reflexion")
-                texte = executer_controle(decision.tache)
-            nom_outil = "controle_pc_astra"
-
-        elif decision.type == "vision":
-            from tools.ecran import analyser_ecran
-
-            output.event("etat", "reflexion")
-            texte = analyser_ecran(decision.tache)
-            nom_outil = "capture_screen"
-
-        elif decision.type == "hermes":
-            from tools.deleguer_a_hermes import deleguer_en_fond
-
-            texte = deleguer_en_fond(
-                decision.tache,
-                intro="Hermes a terminé le travail de contenu. ",
-                nom_thread="contenu-hermes",
-            )
-            nom_outil = "deleguer_a_hermes"
-
-        else:
-            nom_outil = decision.outil
-            outil = registre.get(nom_outil)
-            if outil is None:
-                return None
-            from types import SimpleNamespace
-
-            bloc = SimpleNamespace(
-                type="tool_use",
-                name=nom_outil,
-                input=decision.arguments,
-                id="route-prioritaire-commune",
-            )
-            resultats = output.execute([bloc])
-            annonce = registre.annonce_en_attente()
-            if annonce:
-                output.event("etat", "parole")
-                phrase = annonce + " Tu confirmes ?"
-                if not output.cancelled():
-                    output.say(phrase, interruptible=False)
-                return SENTINEL_CONFIRM
-            texte = str(resultats[0]["content"] if resultats else "C'est fait.")
+        nom_outil = decision.outil
+        from types import SimpleNamespace
+        bloc = SimpleNamespace(type="tool_use", name=nom_outil,
+                               input=decision.arguments, id="route-prioritaire-commune")
+        resultats = output.execute([bloc])
+        annonce = registre.annonce_en_attente()
+        if annonce:
+            output.event("etat", "parole")
+            if not output.cancelled():
+                output.say(annonce + " Tu confirmes ?", interruptible=False)
+            return SENTINEL_CONFIRM
+        texte = str(resultats[0]["content"] if resultats else "C'est fait.")
 
         historique.append({"role": "assistant", "content": texte})
         output.event("outil", nom_outil, question[:60])
@@ -325,9 +272,9 @@ class ConversationManager:
             ),
             "",
         )
-        from core.routage_intentions import modules_pour_phrase
-
-        modules_outils = modules_pour_phrase(question)
+        from assistant_vocal.runtime import runtime
+        runtime.start()
+        modules_outils = runtime.capabilities.select_domains(question)
         max_tours_outils = max(
             1, min(int(config.reglage("assistant.max_tours_outils", 6) or 6), 12)
         )
@@ -376,7 +323,7 @@ class ConversationManager:
                     fournisseur,
                     session.system,
                     historique,
-                    registre.schemas_api(
+                    runtime.schemas(
                         local_seulement=(fournisseur.nom == "Ollama"),
                         modules=modules_outils,
                     ),
@@ -390,7 +337,7 @@ class ConversationManager:
                     "tous" if modules_outils is None else len(modules_outils),
                 )
             except Exception as e:
-                print(f"  [{fournisseur.nom}] erreur : {e}")
+                LOG.warning("Fournisseur indisponible : %s", fournisseur.nom)
                 LOG.exception("appel LLM en echec")
                 return arreter_tour(
                     "Je n'arrive pas a joindre le modele pour le moment."

@@ -91,6 +91,8 @@ def migrate(raw):
     conf.setdefault("assistant", {}).setdefault("name", "Red")
     conf["assistant"].setdefault("persona", "red")
     conf.setdefault("admin", {}).setdefault("enabled", True)
+    for ident in ("legacy_tools", "computer", "vision", "hermes"):
+        conf.setdefault("modules", {}).setdefault(ident, {"enabled": True})
     conf["config_version"] = VERSION
     return conf
 

@@ -12,6 +12,8 @@ class ModuleManifest:
     entrypoint: str
     required_capabilities: tuple = ()
     optional_capabilities: tuple = ()
+    name: str = ""
+    legacy_tool_modules: tuple = ()
 
     @classmethod
     def parse(cls, raw):
@@ -26,7 +28,7 @@ class ModuleManifest:
         ):
             raise ValueError("Le point d’entrée doit appartenir au package du module.")
         arrays = []
-        for key in ("required_capabilities", "optional_capabilities"):
+        for key in ("required_capabilities", "optional_capabilities", "legacy_tool_modules"):
             values = raw.get(key, [])
             if not isinstance(values, list) or any(
                 not isinstance(v, str) or not re.fullmatch(r"[a-z][a-z0-9_.]+", v)
@@ -34,7 +36,8 @@ class ModuleManifest:
             ):
                 raise ValueError(f"{key} invalide.")
             arrays.append(tuple(values))
-        return cls(ident, str(raw["version"]), str(raw["description"]), entry, *arrays)
+        return cls(ident, str(raw["version"]), str(raw["description"]), entry,
+                   arrays[0], arrays[1], str(raw.get("name") or ident), arrays[2])
 
 
 class RedModule:

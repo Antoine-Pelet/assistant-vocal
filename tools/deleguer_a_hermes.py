@@ -44,6 +44,19 @@ import requests
 
 # ---- Registre des taches Hermes (COMMAND CENTER) + part Hermes (tokens totaux) ----
 _LOCK = threading.Lock()
+_OUTPUT_GENERATION = 0
+
+
+def suspendre_retours():
+    global _OUTPUT_GENERATION
+    with _LOCK:
+        _OUTPUT_GENERATION += 1
+
+
+def _retour_vocal(texte, generation):
+    if generation == _OUTPUT_GENERATION:
+        voix.parler(texte)
+
 _MAX_TACHES = 50
 _TOKENS = None               # tokens Hermes cumules (30 j), pour le HUD/panneau
 _FICHIER_TACHES = Path(__file__).resolve().parent.parent / "logs" / "hermes" / "taches.json"
@@ -171,7 +184,7 @@ def _ajouter_tache(session, tache):
         nom_session = session
     else:
         base = re.sub(r"[^a-z0-9]+", "-", (tache or "tache").lower()).strip("-")[:24]
-        nom_session = f"jarvis-{base or 'tache'}-{identifiant[:4]}"
+        nom_session = f"red-{base or 'tache'}-{identifiant[:4]}"
     t = {"id": identifiant, "session": nom_session,
          "tache": (tache or "")[:140], "statut": "en_cours",
          "debut": time.time(), "fin": None, "duree": None,
@@ -201,11 +214,8 @@ def _finir_tache(t, statut, resume="", tokens=None, cout=None, modele=""):
 
 
 def _pousser_hud():
-    try:
-        import hud
-        hud.hermes(taches_en_cours(), _TOKENS)
-    except Exception:
-        pass
+    # Compatibilité interne : le panneau lit le registre des tâches à la demande.
+    pass
 
 
 def _maj_tokens():
@@ -281,7 +291,7 @@ def _appeler_hermes_cli(prompt):
     timeout = int(reglage("hermes.timeout", 900))
     dossier = Path(reglage("hermes.workspace", "") or Path.home() / "hermes-workspace")
     cwd = str(dossier) if dossier.is_dir() else None
-    with tempfile.TemporaryDirectory(prefix="jarvis-hermes-") as temporaire:
+    with tempfile.TemporaryDirectory(prefix="red-hermes-") as temporaire:
         usage_fichier = Path(temporaire) / "usage.json"
         proc = subprocess.run(
             [exe, "-z", prompt, "--usage-file", str(usage_fichier)],
@@ -313,7 +323,7 @@ def _appeler_hermes_http(prompt, session):
     body = {
         "model": "hermes-agent",
         "input": prompt,
-        "conversation": session or reglage("hermes.session", "jarvis-delegation"),
+        "conversation": session or reglage("hermes.session", "red-delegation"),
     }
     reponse = requests.post(
         f"{base}/v1/responses", json=body,
@@ -408,6 +418,7 @@ def deleguer_en_fond(tache: str, intro: str = "Hermes a termine. ",
     l'accuse pour Red. Reutilise par deleguer_a_hermes et les outils de contenu."""
     t = _ajouter_tache(session, tache)
     session_effective = t["session"]
+    generation = _OUTPUT_GENERATION
 
     def worker():
         try:
@@ -422,16 +433,11 @@ def deleguer_en_fond(tache: str, intro: str = "Hermes a termine. ",
                          resume=resume, tokens=tokens, cout=cout,
                          modele=modele_utilise)
             prefixe = intro if not a_valider else "Hermes attend ta validation. "
-            voix.parler(prefixe + resume)
-            try:                                  # retour Hermes aussi a l'ecran (overlay)
-                import overlay
-                overlay.afficher(resume, type="reponse")
-            except Exception:
-                pass
+            _retour_vocal(prefixe + resume, generation)
         except Exception as e:
             _finir_tache(t, "echouee", resume=str(e)[:120])
-            voix.parler("La delegation a Hermes a echoue. "
-                        + confidentialite.filtrer(str(e), 120))
+            _retour_vocal("La delegation a Hermes a echoue. "
+                        + confidentialite.filtrer(str(e), 120), generation)
         finally:
             _maj_tokens()                         # conso Hermes mise a jour apres la tache
             _pousser_hud()

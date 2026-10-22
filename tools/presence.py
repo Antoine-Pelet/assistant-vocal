@@ -17,6 +17,8 @@ LOG = obtenir()
 
 # Etat runtime du service.
 _ETAT = {"actif": True, "present": None, "absent_depuis": None}
+_STOP = threading.Event()
+_THREAD = None
 
 
 def _joignable(ip):
@@ -44,10 +46,12 @@ def _boucle():
     from tools.modes import activer
     off_declenche = False
 
-    while True:
+    while not _STOP.is_set():
         if _ETAT["actif"]:
             # Deux essais : les iPhone dorment parfois cote wifi.
             present = _joignable(ip) or _joignable(ip)
+            if _STOP.is_set():
+                break
             maintenant = time.time()
 
             if present:
@@ -69,18 +73,30 @@ def _boucle():
                     off_declenche = True
                 _ETAT["present"] = False
 
-        time.sleep(intervalle)
+        _STOP.wait(max(1, intervalle))
 
 
 def demarrer_presence():
     """Lance le service de detection en tache de fond (si configure)."""
+    global _THREAD
+    if _THREAD is not None and _THREAD.is_alive():
+        return arreter_presence
     ip = reglage("presence.ip", "")
     if not ip:
         return
     _ETAT["actif"] = bool(reglage("presence.actif", True))
-    threading.Thread(target=_boucle, daemon=True).start()
+    _STOP.clear()
+    _THREAD = threading.Thread(target=_boucle, daemon=True, name="red-presence")
+    _THREAD.start()
     etat = "active" if _ETAT["actif"] else "en pause"
-    print(f"Detection de presence {etat} (iPhone {ip}).")
+    LOG.info("Détection de présence %s", etat)
+    return arreter_presence
+
+
+def arreter_presence():
+    _STOP.set()
+    if _THREAD is not None and _THREAD is not threading.current_thread():
+        _THREAD.join(timeout=3)
 
 
 @outil(

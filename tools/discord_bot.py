@@ -21,7 +21,8 @@ from core.registre import outil
 LOG = obtenir()
 
 # Reference vers le bot lance en tache de fond (boucle asyncio dans un thread).
-_BOT = {"loop": None, "client": None, "lance": False}
+_BOT = {"loop": None, "client": None, "lance": False, "thread": None}
+_STOP = threading.Event()
 
 _CAP_SALON = 150     # messages max lus par salon
 _CAP_TOTAL = 600     # messages max au total (garde-fou anti-lenteur)
@@ -37,8 +38,24 @@ def demarrer_discord():
     if not _configure() or _BOT["lance"]:
         return
     _BOT["lance"] = True
-    threading.Thread(target=_lancer, daemon=True).start()
-    print("Bot Discord : connexion en cours...")
+    _STOP.clear()
+    _BOT["thread"] = threading.Thread(target=_lancer, daemon=True, name="red-discord")
+    _BOT["thread"].start()
+    LOG.info("Bot Discord : connexion en cours...")
+    return arreter_discord
+
+
+def arreter_discord():
+    _STOP.set()
+    loop, client = _BOT["loop"], _BOT["client"]
+    if loop is not None and client is not None and loop.is_running():
+        try:
+            asyncio.run_coroutine_threadsafe(client.close(), loop).result(timeout=3)
+        except Exception:
+            LOG.warning("Arrêt Discord en cours")
+    thread = _BOT.get("thread")
+    if thread is not None and thread is not threading.current_thread():
+        thread.join(timeout=3)
 
 
 def _lancer():
@@ -52,17 +69,23 @@ def _lancer():
 
     @client.event
     async def on_ready():
+        if _STOP.is_set():
+            await client.close()
+            return
         LOG.info("discord: connecte comme %s", client.user)
-        print(f"Bot Discord connecte ({client.user}).")
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     _BOT["loop"] = loop
     try:
-        loop.run_until_complete(client.start(token))
+        if not _STOP.is_set():
+            loop.run_until_complete(client.start(token))
     except Exception as e:
         LOG.exception("discord: bot arrete")
-        print(f"Bot Discord arrete : {e}")
+    finally:
+        loop.run_until_complete(client.close())
+        loop.close()
+        _BOT.update(loop=None, client=None, lance=False)
 
 
 async def _collecter(client, apres):

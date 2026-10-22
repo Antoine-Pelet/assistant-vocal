@@ -35,5 +35,8 @@ def obtenir():
         _LOG.setLevel(logging.INFO)
         _LOG.handlers.clear()
         _LOG.addHandler(handler)
+        console = logging.StreamHandler()
+        console.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
+        _LOG.addHandler(console)
         _LOG.propagate = False
     return _LOG

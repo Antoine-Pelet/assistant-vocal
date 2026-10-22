@@ -1,4 +1,4 @@
-"""Reconnaissance musicale (Shazam-like) — JARVIS PUR, réflexe local à la demande.
+"""Reconnaissance musicale (Shazam-like) — RED LOCAL, réflexe local à la demande.
 
 « C'est quoi cette musique ? » → capture ~8 s d'audio, empreinte via shazamio,
 réponse courte. Deux sources : le MICRO de la pièce (musique ambiante) ou l'AUDIO
@@ -29,7 +29,7 @@ _RECONNAISSEUR = _RACINE / "musique" / "reconnaisseur.py"
 _CAPTURES = _RACINE / "musique" / "captures"
 _NOTES = _RACINE / "notes" / "musiques.md"
 
-# Hook injecté par jarvis14 : capture depuis le micro EN SUSPENDANT le wake word
+# Hook injecté par le contrat audio local : capture depuis le micro EN SUSPENDANT le wake word
 # (le micro est partagé). Signature : (secondes) -> (samples float32 mono, sr).
 _CAPTURE_MICRO = None
 
@@ -44,7 +44,7 @@ def definir_capture_micro(fn):
 def _capturer_micro(secondes):
     if _CAPTURE_MICRO is not None:
         return _CAPTURE_MICRO(secondes)          # gère la pause du wake word + bip
-    # Repli (outil appelé hors de jarvis14, ex. test) : capture directe.
+    # Repli (outil appelé hors de la boucle audio, ex. test) : capture directe.
     import sounddevice as sd
     sr = 16000
     audio = sd.rec(int(secondes * sr), samplerate=sr, channels=1,

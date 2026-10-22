@@ -2,7 +2,7 @@
 
 Deux entrees :
 - demande explicite (« utilise Astra pour... », « prends le controle du PC... »)
-  -> l'enonce vaut autorisation pour la tache sure demandee ;
+  -> la capacité N3 demande une confirmation avant de prendre le contrôle ;
 - appel par le LLM quotidien quand une tache exige vraiment l'interface graphique
   -> outil N3, donc confirmation vocale obligatoire a chaque fois.
 

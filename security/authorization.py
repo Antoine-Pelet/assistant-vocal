@@ -27,9 +27,14 @@ _N3 = frozenset(
 def niveau(nom):
     """Niveau de permission d'un outil : N1 / N2 / N3 (ou '?' si inconnu)."""
     o = _outil(nom)
+    return niveau_outil(o)
+
+
+def niveau_outil(o):
+    """Même politique pour un outil historique ou une capacité de module."""
     if o is None:
         return "?"
-    if nom in _N3:
+    if o.nom in _N3:
         return "N3"
     declared = getattr(o, "permission_level", None)
     if declared:
@@ -37,6 +42,18 @@ def niveau(nom):
     if not o.confirmation:
         return "N1"
     return "N2"
+
+
+def execute(outil, arguments):
+    """Point de contrôle partagé ; aucune capacité ne saute une validation N3."""
+    from security.confirmations import mettre_en_attente
+    from core.contexte import current
+
+    level = niveau_outil(outil)
+    allowed = current().source == "local" and est_autorise(outil.nom)
+    if level == "N3" or (level == "N2" and not allowed):
+        return mettre_en_attente(outil, arguments)
+    return outil.fonction(**arguments)
 
 
 def est_n3(nom):

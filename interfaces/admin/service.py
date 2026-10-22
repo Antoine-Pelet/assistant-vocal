@@ -1121,6 +1121,16 @@ def _reconnecter_mcp():
 # ==================================================================== permissions
 
 
+def _modules():
+    """État générique : aucun accès au code métier ni aux secrets des modules."""
+    from assistant_vocal.runtime import runtime
+    if not runtime.modules:
+        return {"ok": True, "started": False, "modules": []}
+    return {"ok": True, "started": runtime.started,
+            "modules": [{"id": ident, **status}
+                        for ident, status in runtime.modules.health().items()]}
+
+
 def _permissions():
     """Perimetre de securite EN LECTURE SEULE (la N8 ajoutera N1/N2/N3 + revocations)."""
     from core import registre

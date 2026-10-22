@@ -52,6 +52,10 @@ def monter_routes(app):
         return HTMLResponse(service._HTML.read_text(encoding="utf-8"))
 
     # -- lecture --
+    @app.get("/api/panneau/modules")
+    def api_modules(request: Request):
+        return garde(request) or service._modules()
+
     @app.get("/api/panneau/modeles")
     def api_modeles(request: Request):
         return garde(request) or service._modeles()

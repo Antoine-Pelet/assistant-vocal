@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "description": "Validation de l’API d’extension, sans matériel ni réseau.",
   "entrypoint": "modules.demo.module:Module",
-  "required_capabilities": ["events.local"],
-  "optional_capabilities": ["home.devices"]
+  "required_capabilities": [
+    "events.local"
+  ],
+  "optional_capabilities": [
+    "home.devices"
+  ],
+  "name": "Démonstration"
 }

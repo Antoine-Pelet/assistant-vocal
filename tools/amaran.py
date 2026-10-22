@@ -1,4 +1,4 @@
-"""Amaran (Aputure) — pilotage des lumières vidéo par gestes/voix. JARVIS PUR :
+"""Amaran (Aputure) — pilotage des lumières vidéo par gestes/voix. RED LOCAL :
 contrôle LOCAL, temps réel, aucun cloud, aucune app.
 
 L'amaran se pilote en Bluetooth (mesh Sidus Link), pas depuis un PC directement.

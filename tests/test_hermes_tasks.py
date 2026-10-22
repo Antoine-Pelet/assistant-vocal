@@ -16,7 +16,7 @@ class HermesTaskRegistryTests(unittest.TestCase):
                     patch.object(hermes, "_TACHES", []), \
                     patch.object(hermes, "_pousser_hud"):
                 tache = hermes._ajouter_tache("", "Analyse le budget du mois")
-                self.assertTrue(tache["session"].startswith("jarvis-analyse-le-budget"))
+                self.assertTrue(tache["session"].startswith("red-analyse-le-budget"))
                 hermes._finir_tache(tache, "terminee", resume="Fait",
                                     tokens=1234, cout=0.0123,
                                     modele="modele-test")

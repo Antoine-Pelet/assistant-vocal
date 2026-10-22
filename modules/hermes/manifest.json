@@ -1,0 +1,10 @@
+{
+  "id": "hermes",
+  "name": "Hermes",
+  "version": "1.0.0",
+  "description": "Délégation et suivi des travaux en arrière-plan.",
+  "entrypoint": "modules.hermes.module:Module",
+  "legacy_tool_modules": [
+    "deleguer_a_hermes"
+  ]
+}

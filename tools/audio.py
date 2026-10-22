@@ -1,4 +1,4 @@
-"""Sortie audio à la voix : « passe sur le casque / sur les enceintes ». JARVIS PUR
+"""Sortie audio à la voix : « passe sur le casque / sur les enceintes ». RED LOCAL
 (matériel, temps réel). N1, non exposé au MCP (périphérique physique, reste local).
 
 Crucial en stream : envoyer les annonces dans MON casque, pas dans le micro du live.

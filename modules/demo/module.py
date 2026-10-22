@@ -11,9 +11,22 @@ class Module(RedModule):
             name="demo_ping",
             description="Répond au test local du module de démonstration.",
         )
+        app.capability(self.hello, name="demo.hello",
+                       description="Salue depuis le module de démonstration.",
+                       intents=("bonjour module démo",))
+        app.route(self.route)
         app.subscribe("demo.request", self.receive)
         app.publish("demo.ping", self.ping)
         app.admin_endpoint("/health", self.health)
+
+    def hello(self):
+        return "Bonjour depuis le module de démonstration."
+
+    def route(self, text, context):
+        from core.capabilities import CapabilityRequest
+        from core.util import sans_accents
+        if sans_accents(text.lower()).strip(" .!?") == "bonjour module demo":
+            return CapabilityRequest("demo.hello")
 
     def ping(self):
         return self.message

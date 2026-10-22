@@ -1,0 +1,10 @@
+{
+  "id": "vision",
+  "name": "Vision",
+  "version": "1.0.0",
+  "description": "Analyse ponctuelle de la fenêtre active.",
+  "entrypoint": "modules.vision.module:Module",
+  "legacy_tool_modules": [
+    "ecran"
+  ]
+}

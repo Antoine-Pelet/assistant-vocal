@@ -21,7 +21,7 @@ class SelectionDomainesTests(unittest.TestCase):
     def test_lecture_ecran_prend_la_route_vision_pas_astra(self):
         self.assertTrue(est_demande_vision_ecran("Lis cette erreur sur mon écran"))
         decision = decider_prioritaire("Lis cette erreur sur mon écran")
-        self.assertEqual(decision.type, "vision")
+        self.assertEqual(decision.outil, "vision.analyze_screen")
         self.assertFalse(est_demande_vision_ecran("Clique sur ce bouton à l'écran"))
 
     def test_plusieurs_domaines_peuvent_etre_combines(self):

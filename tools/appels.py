@@ -28,7 +28,7 @@ from core.registre import outil
 LOG = logging.getLogger("assistant")
 _RACINE = Path(__file__).resolve().parent.parent
 
-# Transcripteur injecte par jarvis14 (reutilise le Whisper deja charge).
+# Transcripteur injecté par le contrat audio local (reutilise le Whisper deja charge).
 _TRANSCRIPTEUR = None
 
 # Prefixes surtaxes / interdits par defaut (France), testes sur la forme NATIONALE
@@ -38,7 +38,7 @@ _INTERDITS_DEFAUT = ["089", "0899", "3", "118", "10"]
 
 
 def definir_transcripteur(fn):
-    """jarvis14 fournit ici une fonction chemin_audio -> texte (Whisper deja charge)."""
+    """Le contrat audio fournit ici une fonction chemin_audio -> texte (Whisper deja charge)."""
     global _TRANSCRIPTEUR
     _TRANSCRIPTEUR = fn
 

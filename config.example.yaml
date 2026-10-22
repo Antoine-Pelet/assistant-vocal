@@ -2,6 +2,14 @@ config_version: 2
 admin:
   enabled: true  # panneau loopback ; mot de passe : python -m assistant_vocal --admin-password
 modules:
+  legacy_tools:
+    enabled: true
+  computer:
+    enabled: true
+  vision:
+    enabled: true
+  hermes:
+    enabled: true
   demo:
     enabled: false
     message: pong
@@ -318,7 +326,7 @@ hermes:                        # delegation a Hermes Agent (facultatif ; voir do
   api_url: "http://127.0.0.1:8642"   # API locale d'Hermes (gateway, loopback uniquement)
   api_key: ""                        # cle du serveur API d'Hermes (= API_SERVER_KEY de son .env)
   # api_key_file: ""                 # alternative : chemin d'un fichier contenant la cle
-  session: "jarvis-delegation"       # repli ; Red genere sinon une session unique par delegation
+  session: "red-delegation"       # repli ; Red genere sinon une session unique par delegation
   modele_facturation: ""              # si l'API ne renvoie pas le modele : ex. "opus" pour estimer le cout
   timeout: 900                       # secondes max d'une delegation (une recherche de fond peut durer)
   resume_max: 500                    # longueur max du resume lu a voix haute (filtre de confidentialite)
@@ -494,3 +502,8 @@ memoire:
     timeCost: 3          # Trois passes : environ 300 ms sur le PC de développement.
     parallelism: 1      # crypto_pwhash de libsodium fixe p=1 ; les autres valeurs sont refusées.
     algorithmVersion: 19  # Argon2 v1.3 ; algorithme fixé à Argon2id.
+
+# Les modules hérités sont activés par défaut lors de la migration de configuration.
+# Pour en désactiver un, renseigner modules.<identifiant>.enabled: false puis
+# redémarrer Red. Identifiants : legacy_tools, computer, vision, hermes, demo.
+# Ajouter un module nécessite uniquement son dossier et sa configuration.

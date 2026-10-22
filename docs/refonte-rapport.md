@@ -240,3 +240,10 @@ routes administratives. Les outils peuvent déclarer `permission_level="N3"`
 sans modifier une liste centrale. Aucun changement spécifique dans le runtime,
 le registre, le gestionnaire de conversation ou le panneau n'est nécessaire.
 Le [guide des modules](modules.md) donne un exemple complet et les règles de sécurité.
+
+## Étape suivante achevée — 22 octobre 2026
+
+Les routes métier et les capacités exécutables sont maintenant migrées. Le
+[rapport complémentaire](refonte-capabilities-rapport.md) remplace les points de
+dette concernant le routage Hermes/Vision/Astra, le panneau Modules et les
+initialisations audio déplacées.

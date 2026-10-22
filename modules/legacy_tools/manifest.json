@@ -1,0 +1,8 @@
+{
+  "id": "legacy_tools",
+  "name": "Outils existants",
+  "version": "1.0.0",
+  "description": "Compatibilité des outils, intentions et intégrations existantes.",
+  "entrypoint": "modules.legacy_tools.module:Module",
+  "legacy_tool_modules": []
+}

@@ -39,7 +39,6 @@ from core.contexte import contextual, bind, current
 from services.llm.models import ProviderLLM
 from core.reveil import charger_reveil, mot_activation, retirer_activation
 from core.util import nettoyer_reponse_vocale, sans_accents
-from tools.lumieres import allumer_si_nuit, charger_pieces_hue
 
 # ---------------------------------------------------------------- reglages
 
@@ -146,102 +145,24 @@ def _refaire_systeme(memoire_courante):
     SYSTEME_COURANT = build(memoire_courante, current())
 
 
-# ---------------------------------------------------------------- HUD (option)
-
-hud = None  # Interface historique désactivée : fonctionnement vocal headless.
-_overlay = None
-
-_dernier_etat_hud = None
-_DERNIER_OUTIL = None  # pour la carte overlay
-_OUTILS_MUSIQUE = {
-    "identifier_musique",
-    "identifier_musique_fichier",
-    "derniere_musique",
-}
-
-
-_RE_NOMBRE = re.compile(r"\d[\d .,:h]*\d|\d")
-
-
-def _consultable(texte):
-    """Heuristique (mode 'auto') : la reponse contient-elle des donnees a CONSULTER
-    (=> fenetre + voix) ou est-ce un simple acquittement ephemere (=> voix seule) ?"""
-    t = (texte or "").strip()
-    if len(t) > 200:
-        return True
-    if "\n" in t:  # liste / plusieurs lignes
-        return True
-    if len(_RE_NOMBRE.findall(t)) >= 2:  # plusieurs nombres (stats, prix, horaires)
-        return True
-    if "«" in t or '"' in t:  # entite citee (titre, nom, lieu)
-        return True
-    return False
-
-
-def _afficher_overlay(texte):
-    """Route la reponse vers l'overlay selon un HINT d'outil (affichage: toujours/
-    jamais/auto) puis, en 'auto', une heuristique de contenu. Memorise toujours la
-    derniere reponse pour la surcharge vocale « affiche-le »."""
-    global _DERNIER_OUTIL
-    outil_nom = _DERNIER_OUTIL
-    _DERNIER_OUTIL = None
-    if _overlay is None or not texte:
-        return
-    typ = "musique" if outil_nom in _OUTILS_MUSIQUE else "reponse"
-    try:
-        _overlay.memoriser(texte, typ)  # pour « affiche-le »
-    except Exception:
-        pass
-    hint = registre.affichage(outil_nom) if outil_nom else "auto"
-    montrer = (hint == "toujours") or (hint != "jamais" and _consultable(texte))
-    if montrer:
-        try:
-            _overlay.afficher(texte, type=typ)
-        except Exception:
-            pass
+# Hooks conservés pour les anciens consommateurs ; aucune interface permanente.
+_DERNIER_OUTIL = None
 
 
 def _hud(methode, *args):
-    """Relaie un appel au HUD sans jamais interrompre l'assistant."""
-    if hud is None or not config.reglage("hud.actif", True):
-        return
-    global _dernier_etat_hud
-    if methode == "etat":
-        if args and args[0] == _dernier_etat_hud:
-            return
-        _dernier_etat_hud = args[0] if args else None
-    try:
-        getattr(hud, methode)(*args)
-    except Exception:
-        pass
+    pass
 
 
 def _niv_hud(bloc):
-    """Convertit le niveau brut du micro en une valeur 0..1 pour le coeur."""
     return min(1.0, niveau(bloc) / 0.2)
 
 
 def _hud_status():
-    """Pousse au HUD le mode de routage et le budget du jour (part Hermes gérée par
-    tools.deleguer_a_hermes qui pousse hud.hermes)."""
-    try:
-        from core.routage import mode_actuel
+    pass
 
-        _hud("routage", mode_actuel())
-    except Exception:
-        pass
-    try:
-        from core import budget
 
-        e = budget.etat()
-        _hud(
-            "budget",
-            round(e["total_jour"], 2),
-            e["plafond_jour"],
-            round(e["pct_jour"], 3),
-        )
-    except Exception:
-        pass
+def _afficher_overlay(texte):
+    pass
 
 
 # ---------------------------------------------------------------- audio
@@ -298,7 +219,7 @@ def basculer_micro(force=None):
     except Exception:
         pass
     _hud("micro", muet)
-    print("  [micro] " + ("coupe (mute)" if muet else "reactive"))
+    LOG.info("  [micro] " + ("coupe (mute)" if muet else "reactive"))
     return muet
 
 
@@ -359,8 +280,6 @@ def _dire(texte, interruptible=True):
     interruptible=False : le barge-in est desactive pendant cette phrase (utilise
     pour la question de confirmation : la reponse de l'utilisateur est un oui/non,
     pas une interruption)."""
-    if _overlay is not None and _overlay.est_muet():  # mode "silencieux visuel" :
-        return  # la reponse s'affiche, pas de TTS.
     if _est_interrompu():
         return
     global _TEXTE_PARLE
@@ -427,7 +346,7 @@ def _dire_sapi(texte, confidentiel=False):
                 if confidentiel
                 else (erreurs or b"").decode("utf-8", "replace").strip()
             )
-            print(f"  [SAPI] echec (code {processus.returncode}) : {details}")
+            LOG.info(f"  [SAPI] echec (code {processus.returncode}) : {details}")
     finally:
         _PROCESSUS_PAROLE = None
 
@@ -673,7 +592,7 @@ def repondre(historique):
         phrases = ("Compris.", "Très bien, je regarde ça.", "D'accord, je m'en occupe.")
         phrase = phrases[_NUMERO_ACCUSE % len(phrases)]
         _NUMERO_ACCUSE += 1
-        _hud("dire_jarvis", phrase)
+        _hud("dire_red", phrase)
         annulation = getattr(_CONTEXTE_REPONSE, "annulation", None)
 
         def prononcer_accuse():
@@ -823,7 +742,7 @@ def attendre_suite(flux, tampon, duree=None):
 def _dire_en_vidant_micro(texte, flux):
     _INTERRUPTION.clear()
     _hud("etat", "parole")
-    _hud("dire_jarvis", texte)
+    _hud("dire_red", texte)
     fil = threading.Thread(target=bind(dire), args=(texte, False), daemon=True)
     fil.start()
     detecteur = _DETECTEUR_INTERRUPTION
@@ -1003,7 +922,7 @@ def repondre_en_ecoutant(historique, flux, reveil, whisper):
                 "arrete de parler",
             }:
                 _AUDIO_INTERRUPTION.extend(tampon)
-            print(f"  [micro] Parole interrompue : {dit}")
+            LOG.info("Parole interrompue")
             break
 
     thread.join(timeout=0.5 if interrompu else 10)
@@ -1037,7 +956,7 @@ def _confirmer(interrompu, relancer, whisper, historique, flux):
     if audio_conf is not None:
         seg, _ = whisper.transcribe(audio_conf, language="fr", beam_size=5)
         reponse = nettoyer(" ".join(s.text for s in seg).strip())
-    print(f"  [confirmation] {reponse or '(rien)'}")
+    LOG.info("Réponse de confirmation reçue")
 
     memoriser = _est_toujours(reponse)
     from core.memoire_store import accord_explicite
@@ -1179,7 +1098,7 @@ def traiter(audio, whisper, historique, flux, reveil, question=None):
         question = transcrire_demande(whisper, audio)
 
     if not question or len(question) < 3:
-        print("  (rien compris)\n")
+        LOG.info("  (rien compris)\n")
         _dire_en_vidant_micro(
             "Je n’ai pas bien compris. Peux-tu répéter après le bip ?", flux
         )
@@ -1189,7 +1108,7 @@ def traiter(audio, whisper, historique, flux, reveil, question=None):
     if _traiter_memoire_confidentielle(question, whisper, flux):
         return True
 
-    print(f"  Vous : {question}")
+    LOG.info("Demande vocale reçue")
     _hud("dire_vous", question)
     from core.commandes_vocales import commande_assistant
 
@@ -1200,7 +1119,7 @@ def traiter(audio, whisper, historique, flux, reveil, question=None):
         return SENTINEL_VEILLE
     if controle == "silence":
         couper_parole()
-        _hud("dire_jarvis", "Parole interrompue.")
+        _hud("dire_red", "Parole interrompue.")
         return True
     _hud("etat", "reflexion")
     historique.append({"role": "user", "content": question})
@@ -1210,7 +1129,7 @@ def traiter(audio, whisper, historique, flux, reveil, question=None):
     )
 
     if interrompu:
-        _hud("dire_jarvis", "Parole interrompue.")
+        _hud("dire_red", "Parole interrompue.")
         return relancer
     if texte == SENTINEL_CONFIRM:
         _hud("confirmation", True)
@@ -1222,10 +1141,10 @@ def traiter(audio, whisper, historique, flux, reveil, question=None):
             _hud("etat", "parole")
             _dire_en_vidant_micro(texte, flux)
 
-    _hud("dire_jarvis", texte)
+    _hud("dire_red", texte)
     _afficher_overlay(texte)
     _hud_status()
-    print(f"  Red : {texte}\n")
+    LOG.info("Réponse vocale terminée")
     _tronquer(historique)
     return relancer
 
@@ -1238,46 +1157,6 @@ def _feedback_geste(geste):
     except Exception:
         pass
     _hud("outil", "geste", geste)
-
-
-def _installer_raccourci_gestes():
-    """Raccourcis globaux des mains et du regard (optionnels, via keyboard)."""
-    combo = config.reglage("gestes.raccourci", "ctrl+alt+g")
-    combo_demo = config.reglage("gestes.raccourci_demo", "ctrl+alt+d")
-    combo_regard = config.reglage("gestes.raccourci_regard", "ctrl+alt+r")
-    if not combo and not combo_demo and not combo_regard:
-        return
-    try:
-        import keyboard
-    except Exception:
-        return  # lib absente : le raccourci est optionnel, on continue sans
-    from core import gestes
-
-    def _toggle():
-        print(gestes.arreter() if gestes.actif() else gestes.demarrer())
-
-    def _demo():
-        print(gestes.demarrer_demo())
-
-    def _regard():
-        print(
-            gestes.arreter_regard()
-            if gestes.regard_actif()
-            else gestes.demarrer_regard()
-        )
-
-    try:
-        if combo:
-            keyboard.add_hotkey(combo, _toggle)
-            print(f"Raccourci gestes : {combo}")
-        if combo_demo:
-            keyboard.add_hotkey(combo_demo, _demo)
-            print(f"Raccourci démo gestes : {combo_demo}")
-        if combo_regard:
-            keyboard.add_hotkey(combo_regard, _regard)
-            print(f"Raccourci regard : {combo_regard}")
-    except Exception:
-        LOG.exception("gestes: raccourci clavier")
 
 
 def _installer_raccourci_micro():
@@ -1293,23 +1172,15 @@ def _installer_raccourci_micro():
         if combo:
             try:
                 keyboard.add_hotkey(combo, action)
-                print(f"Raccourci {label} : {combo}")
+                LOG.info(f"Raccourci {label} : {combo}")
             except Exception:
                 LOG.exception("raccourci %s", cle)
 
 
 def _main():
-    print("Chargement des modeles...")
+    LOG.info("Chargement des modeles...")
 
-    registre.charger_outils()
     voix.definir_parleur(dire)
-    try:
-        from tools.alexa import precharger_routines
-
-        precharger_routines()
-    except Exception:
-        LOG.exception("Alexa: préchargement des routines")
-
     whisper = charger_whisper()
     reveil = charger_reveil(whisper)
     global _DETECTEUR_INTERRUPTION
@@ -1321,46 +1192,9 @@ def _main():
             _DETECTEUR_INTERRUPTION = DetecteurInterruption(
                 modele_vosk, mot_activation()
             )
-            print("Interruption vocale active : dites stop pendant une réponse.")
+            LOG.info("Interruption vocale active : dites stop pendant une réponse.")
     except Exception:
         LOG.exception("interruption Vosk indisponible, repli Whisper")
-
-    # Les intégrations facultatives ne chargent leurs SDK que si activées.
-    if config.reglage("twilio.account_sid") or config.reglage("twilio.sid"):
-        try:
-            from tools.appels import definir_transcripteur
-            from tools.appel_direct import definir_transcripteur_direct
-
-            definir_transcripteur(
-                lambda chemin: " ".join(
-                    s.text
-                    for s in whisper.transcribe(chemin, language="fr", beam_size=5)[0]
-                ).strip()
-            )
-            definir_transcripteur_direct(
-                lambda audio: " ".join(
-                    s.text
-                    for s in whisper.transcribe(audio, language="fr", beam_size=1)[0]
-                ).strip()
-            )
-        except ImportError:
-            LOG.warning("Appels configurés mais dépendances calls absentes.")
-    charger_pieces_hue()
-    allumer_si_nuit()
-    for key, module, function in (
-        ("presence.ip", "tools.presence", "demarrer_presence"),
-        ("discord.token", "tools.discord_bot", "demarrer_discord"),
-        ("instagram.comptes", "tools.instagram", "demarrer_refresh_instagram"),
-    ):
-        if config.reglage(key, False) or (
-            key == "instagram.comptes" and config.reglage("instagram.access_token")
-        ):
-            try:
-                from importlib import import_module
-
-                getattr(import_module(module), function)()
-            except Exception:
-                LOG.warning("Intégration indisponible : %s", module)
 
     # Serveur web unifie (pont iPhone + webhook Twilio + panneau + gestes en loopback).
     if (
@@ -1372,31 +1206,18 @@ def _main():
         from core.serveur import demarrer as demarrer_serveur_web
 
         demarrer_serveur_web()
-    # Controle par gestes (webcam, sous-process isole 3.11) : hooks + demarrage optionnel.
-    try:
-        import atexit
-        from core import gestes
-
-        gestes.definir_hooks(couper_tts=couper_parole, feedback=_feedback_geste)
-        atexit.register(gestes.arreter_regard)  # libère le regard à la sortie
-        atexit.register(gestes.arreter)  # libère le tracker invisible
-        if config.reglage("gestes.actif", False):
-            print(gestes.demarrer())
-        _installer_raccourci_gestes()
-        _installer_raccourci_micro()
-    except Exception:
-        LOG.exception("gestes: initialisation")
+    _installer_raccourci_micro()
 
     from core.llm import llm
 
     _fournisseur = llm()
-    print(
+    LOG.info(
         f"Mode : {config.reglage('mode', 'cloud')} — LLM {_fournisseur.nom}, "
         f"TTS {__import__('core.tts', fromlist=['tts']).tts().nom}."
     )
     if not _fournisseur.disponible():
         if config.reglage("mode", "cloud") == "local":
-            print(
+            LOG.info(
                 "ATTENTION : Ollama injoignable. Lance 'ollama serve' et verifie le "
                 "modele (config ollama.modele)."
             )
@@ -1406,7 +1227,7 @@ def _main():
             nom_cle = (
                 "openai.cle" if cloud.fournisseur() == "openai" else "anthropic.cle"
             )
-            print(
+            LOG.info(
                 f"ATTENTION : aucune cle cloud dans config.yaml ({nom_cle}). "
                 "L'assistant ne pourra pas repondre."
             )
@@ -1421,7 +1242,7 @@ def _main():
     _hud_status()
     faits = memoire.charger()
     if faits:
-        print(f"Memoire : {len(faits)} information(s).")
+        LOG.info(f"Memoire : {len(faits)} information(s).")
     _refaire_systeme(faits)
     historique = []
 
@@ -1429,7 +1250,7 @@ def _main():
     CAPTURE_TAUX = _choisir_taux_capture(MICRO)
     BLOC_CAPTURE = int(round(BLOC * CAPTURE_TAUX / TAUX))  # ~80 ms au taux de capture
     if CAPTURE_TAUX != TAUX:
-        print(
+        LOG.info(
             f"[audio] micro en {CAPTURE_TAUX} Hz -> reechantillonnage vers {TAUX} Hz "
             f"(bloc {BLOC_CAPTURE} -> {BLOC})"
         )
@@ -1461,7 +1282,7 @@ def _main():
         cal = _calibrer_seuils(flux)
         if cal:
             SEUIL_SILENCE, SEUIL_PAROLE_SUR = cal
-            print(
+            LOG.info(
                 f"[audio] seuils auto-calibrés au bruit ambiant : "
                 f"silence={SEUIL_SILENCE:.4f}  parole={SEUIL_PAROLE_SUR:.4f}"
             )
@@ -1470,8 +1291,6 @@ def _main():
     # wake word (micro partage). Un bip signale l'ecoute AVANT la capture, pour ne
     # pas polluer l'empreinte envoyee a Shazam.
     try:
-        from tools import musique as _musique
-
         def _capturer_musique(secondes):
             # Signale la capture : la boucle de surveillance (thread principal) lache
             # flux AVANT qu'on le stoppe, sinon son flux.read planterait et couperait
@@ -1502,44 +1321,19 @@ def _main():
                     pass
                 _CAPTURE_MUSIQUE.clear()
 
-        _musique.definir_capture_micro(_capturer_musique)
+        from audio.endpoint import LocalAudioEndpoint
+        from assistant_vocal.runtime import runtime
+        from core.evenements import Event
+        endpoint = LocalAudioEndpoint(whisper, _capturer_musique, couper_parole, _feedback_geste)
+        runtime.capabilities.publish("audio.local", endpoint, "audio")
+        runtime.events.publish(Event.create("audio.ready", {"capability": "audio.local"}))
     except Exception:
         LOG.exception("musique: hook capture micro")
 
-    # Overlay de reponses (fenetre flottante Windows) : demarre masque, cout nul au
-    # repos ; pilotable par config overlay.* et a la voix ("affiche les reponses").
-    if _overlay is not None and config.reglage("overlay.actif", True):
-        try:
-            _overlay.demarrer(
-                {
-                    "actif": True,
-                    "muet": config.reglage("overlay.muet_visuel", False),
-                    "ecran": config.reglage("overlay.ecran", 1),
-                    "coin": config.reglage("overlay.coin", "bas-droite"),
-                    "opacite": config.reglage("overlay.opacite", 0.92),
-                    "largeur": config.reglage("overlay.largeur", 420),
-                    "duree_min": config.reglage("overlay.duree_min", 4.0),
-                    "duree_max": config.reglage("overlay.duree_max", 14.0),
-                    "marge": config.reglage("overlay.marge", 24),
-                    "exclure_obs": config.reglage("overlay.exclure_obs", True),
-                }
-            )
-        except Exception:
-            LOG.exception("overlay: demarrage")
-
-    print(f'\nPret. Dites "{mot_activation()}". Ctrl+C pour quitter.\n')
-    print(
+    LOG.info(f'\nPret. Dites "{mot_activation()}". Ctrl+C pour quitter.\n')
+    LOG.info(
         f'Vous pouvez le couper en redisant "{mot_activation()}" pendant qu\'il parle.\n'
     )
-
-    # Scene "au demarrage" : jouee UNE fois par jour, au premier lancement (musique
-    # + lumieres selon l'heure + accueil vocal / brief Hermes). En tache de fond.
-    try:
-        from tools import scenes
-
-        scenes.jouer_au_demarrage_async()
-    except Exception:
-        LOG.exception("scene au demarrage")
 
     # Vosk a une légère latence : conserver le début d'une commande enchaînée.
     tampon = deque(maxlen=25)
@@ -1569,13 +1363,13 @@ def _main():
 
                 priorite = float(config.reglage("assistant.priorite_micro", 1.0) or 1.0)
                 if not reserver_reveil("principal", score_reveil * priorite):
-                    print("  [micro] Wake ignoré : un micro plus proche a répondu.")
+                    LOG.info("  [micro] Wake ignoré : un micro plus proche a répondu.")
                     continue
 
             enchainer = False
             _hud("etat", "ecoute")
             if not suite:
-                print("  [micro] Oui ?")
+                LOG.info("  [micro] Oui ?")
                 bip()
 
             audio, question_reprise = (
@@ -1585,7 +1379,7 @@ def _main():
             )
             audio_reprise = None
             if audio is None:
-                print("  (rien entendu)\n")
+                LOG.info("  (rien entendu)\n")
                 audio_reprise = attendre_apres_reponse(
                     flux, tampon, whisper, reveil, delai_initial=0
                 )
@@ -1611,7 +1405,7 @@ def _main():
                 enchainer = True
                 continue
 
-            print(
+            LOG.info(
                 "  [micro] J'écoute la suite, puis je demanderai avant de passer en veille."
             )
             audio_reprise = attendre_apres_reponse(flux, tampon, whisper, reveil)
@@ -1620,7 +1414,7 @@ def _main():
                 _hud("etat", "veille")
 
     except (KeyboardInterrupt, ArretAssistant):
-        print("\nAu revoir.")
+        LOG.info("\nAu revoir.")
     finally:
         couper_parole()
         flux.stop()

@@ -80,12 +80,21 @@
 <nav>
   <button data-t="reglages" class="on">Réglages</button>
   <button data-t="fonctions">Fonctionnalités</button>
+  <button data-t="modules">Modules</button>
   <button data-t="modeles">Modèles</button>
   <button data-t="etat">État</button>
   <button data-t="memoire">Mémoire</button>
   <button data-t="perms">Permissions</button>
 </nav>
 <main>
+  <section id="modules" class="tab">
+    <div class="card"><h2>Modules de Red</h2>
+      <p class="note">État des modules chargés. L’activation se règle dans config.yaml, puis prend effet au redémarrage de Red.</p>
+      <div id="modules-message" role="status"></div>
+      <div class="mem-table"><table><thead><tr><th>Module</th><th>Version</th><th>État</th><th>Santé</th><th>Capacités</th></tr></thead>
+      <tbody id="modules-list"></tbody></table></div>
+    </div>
+  </section>
   <section id="modeles" class="tab">
     <div class="card"><h2>Matériel</h2><div id="mat" class="row"></div></div>
     <div class="card"><h2>Modèle actif par backend</h2><div id="actifs"></div></div>
@@ -336,6 +345,7 @@ $$('nav button').forEach(b=>b.onclick=()=>{
   if(b.dataset.t==='etat'){chargerEtat();if(optionalUi.cloud)chargerBudget();if(optionalUi.hermes){chargerActivite();chargerTaches();}} if(b.dataset.t==='perms')chargerPerms();
   if(b.dataset.t==='reglages')chargerReglages();
   if(b.dataset.t==='fonctions')chargerFonctions();
+  if(b.dataset.t==='modules')chargerModules();
   if(b.dataset.t==='modeles')chargerModeles();
   if(b.dataset.t==='memoire')chargerMemoire();
 });
@@ -343,6 +353,17 @@ const fmt=n=>(n||0).toLocaleString('fr-FR');
 const eur=n=>'$'+(n||0).toFixed(2);
 
 /* ---------- MODELES ---------- */
+async function chargerModules(){
+  const d=await api('/api/panneau/modules');
+  $('#modules-message').textContent=d.ok===false ? (d.message || 'État indisponible.') :
+    (!d.started ? 'Le runtime n’est pas démarré.' : '');
+  $('#modules-list').innerHTML=(d.modules||[]).map(m=>`<tr>
+    <td><b>${esc(m.name)}</b><br><small>${esc(m.description)}</small></td>
+    <td>${esc(m.version)}</td><td>${esc(m.status)}</td>
+    <td>${esc(m.enabled ? (m.ok ? 'Disponible' : 'Indisponible') : 'Désactivé')}${m.detail ? '<br><small>'+esc(m.detail)+'</small>' : ''}${m.error ? '<br><small>'+esc(m.error)+'</small>' : ''}</td>
+    <td>${esc(m.capability_count)}</td></tr>`).join('');
+}
+
 async function chargerModeles(){
   const d=await api('/api/panneau/modeles');
   // materiel
